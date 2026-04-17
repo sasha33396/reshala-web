@@ -130,7 +130,7 @@ export class FleetService {
     if (fs.existsSync(keyPath)) return
     const dir = path.dirname(keyPath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    execSync(`ssh-keygen -t ed25519 -f ${shellEscapeKey(keyPath)} -N "" -C reshala -q`, { stdio: 'ignore' })
+    execSync(`ssh-keygen -t ed25519 -f ${shellEscapeKey(keyPath)} -N "" -C reshala -q`, { stdio: ['ignore', 'ignore', 'pipe'] })
     fs.chmodSync(keyPath, 0o600)
   }
 
