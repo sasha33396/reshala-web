@@ -2,11 +2,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy workspace manifests first for layer caching
-COPY package.json package-lock.json turbo.json ./
+COPY package.json turbo.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/
 
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy sources
 COPY packages/shared/ ./packages/shared/
