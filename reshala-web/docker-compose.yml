@@ -22,7 +22,7 @@ services:
     volumes:
       - /root/.reshala_fleet:/app/fleet_db
       - /root/.ssh:/app/ssh_keys
-      - /opt/reshala/plugins:/app/plugins:ro
+      - /opt/reshala-web/plugins:/app/plugins:ro
     env_file: .env
     environment:
       - NODE_ENV=production
