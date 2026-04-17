@@ -1,6 +1,5 @@
 'use client'
 
-import { use } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { fetchServer, fetchMetrics } from '@/lib/api'
@@ -11,11 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
 interface Props {
-  params: Promise<{ name: string }>
+  params: { name: string }
 }
 
 export default function ServerPage({ params }: Props) {
-  const { name } = use(params)
+  const { name } = params
 
   const { data: server } = useQuery({
     queryKey: ['server', name],

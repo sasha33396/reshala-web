@@ -1,6 +1,5 @@
 'use client'
 
-import { use } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
@@ -10,11 +9,11 @@ const SshTerminal = dynamic(
 )
 
 interface Props {
-  params: Promise<{ name: string }>
+  params: { name: string }
 }
 
 export default function TerminalPage({ params }: Props) {
-  const { name } = use(params)
+  const { name } = params
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
