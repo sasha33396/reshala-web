@@ -36,6 +36,8 @@ export const updateServer = (name: string, data: Partial<Server>) =>
   req<Server>(`/fleet/${name}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteServer = (name: string) =>
   req<{ ok: boolean }>(`/fleet/${name}`, { method: 'DELETE' })
+export const provisionServer = (name: string) =>
+  req<{ ok: boolean; error?: string }>(`/fleet/${name}/provision`, { method: 'POST' })
 
 export async function importFleet(file: File) {
   const fd = new FormData()

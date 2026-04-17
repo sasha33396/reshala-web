@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execFileSync } from 'child_process'
+import { Client } from 'ssh2'
 import type { Server, FleetGroup } from '@reshala-web/shared'
 
 const COUNTRY_MAP: Record<string, string> = {
@@ -13,6 +15,10 @@ const COUNTRY_MAP: Record<string, string> = {
   se: '🇸🇪 Sweden',
   un: '🌐 Untagged',
   auto: '🤖 Auto',
+}
+
+function shellEscapeKey(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`
 }
 
 function parseCountry(name: string): string {
@@ -43,6 +49,8 @@ function serializeLine(s: Server): string {
 
 @Injectable()
 export class FleetService {
+  private readonly logger = new Logger(FleetService.name)
+
   private get dbPath(): string {
     return process.env.FLEET_DB_PATH ?? path.join(process.env.HOME ?? '/root', '.reshala_fleet')
   }
@@ -118,6 +126,76 @@ export class FleetService {
     this.writeLines(filtered)
   }
 
+  generateKeyPair(keyPath: string): void {
+    if (fs.existsSync(keyPath)) return
+    const dir = path.dirname(keyPath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    execFileSync('ssh-keygen', ['-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'reshala'], { stdio: 'ignore' })
+    fs.chmodSync(keyPath, 0o600)
+  }
+
+  deployPublicKey(server: Server): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!server.sudoPass) return reject(new Error('No password for key deployment'))
+      const pubKeyPath = `${server.keyPath}.pub`
+      if (!fs.existsSync(pubKeyPath)) return reject(new Error(`Public key not found: ${pubKeyPath}`))
+      const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
+
+      const conn = new Client()
+      const timeout = setTimeout(() => { conn.end(); reject(new Error('Connection timeout')) }, 15000)
+
+      conn.on('ready', () => {
+        const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF ${shellEscapeKey(pubKey)} ~/.ssh/authorized_keys 2>/dev/null || echo ${shellEscapeKey(pubKey)} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+        conn.exec(cmd, (err, stream) => {
+          if (err) { clearTimeout(timeout); conn.end(); return reject(err) }
+          stream.on('close', () => { clearTimeout(timeout); conn.end(); resolve() })
+          stream.on('error', (e: Error) => { clearTimeout(timeout); conn.end(); reject(e) })
+        })
+      })
+
+      conn.on('error', (err) => { clearTimeout(timeout); reject(err) })
+
+      conn.connect({
+        host: server.ip,
+        port: server.port,
+        username: server.user,
+        password: server.sudoPass,
+        readyTimeout: 10000,
+        hostVerifier: () => true,
+      })
+    })
+  }
+
+  async provisionServer(name: string): Promise<{ ok: boolean; error?: string }> {
+    const server = this.getByName(name)
+    if (!server) throw new NotFoundException(`Server "${name}" not found`)
+    try {
+      this.generateKeyPair(server.keyPath)
+      await this.deployPublicKey(server)
+      return { ok: true }
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? 'unknown error' }
+    }
+  }
+
+  async provisionAll(): Promise<{ total: number; ok: number; failed: number; errors: string[] }> {
+    const servers = this.getAll()
+    let ok = 0
+    let failed = 0
+    const errors: string[] = []
+    for (const server of servers) {
+      try {
+        this.generateKeyPair(server.keyPath)
+        await this.deployPublicKey(server)
+        ok++
+      } catch (e: any) {
+        failed++
+        errors.push(`${server.name}: ${e?.message ?? 'unknown'}`)
+      }
+    }
+    return { total: servers.length, ok, failed, errors }
+  }
+
   importFromText(content: string): { added: number; skipped: number; errors: string[] } {
     const errors: string[] = []
     let added = 0
@@ -147,7 +225,14 @@ export class FleetService {
           skipped++
         } else {
           errors.push(`${name}: ${e?.message ?? 'unknown error'}`)
+          continue
         }
+      }
+      // Generate key pair if missing (non-blocking, errors logged but don't fail import)
+      try {
+        this.generateKeyPair(keyPath)
+      } catch (e: any) {
+        this.logger.warn(`Key gen failed for ${name}: ${e?.message}`)
       }
     }
     return { added, skipped, errors }

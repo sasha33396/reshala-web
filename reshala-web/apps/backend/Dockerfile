@@ -15,6 +15,7 @@ RUN cd packages/shared && npx tsc
 RUN cd apps/backend && npx nest build
 
 FROM node:20-alpine
+RUN apk add --no-cache openssh-client
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -59,4 +59,14 @@ export class FleetController {
     const content = file.buffer.toString('utf-8')
     return this.fleetService.importFromText(content)
   }
+
+  @Post(':name/provision')
+  async provision(@Param('name') name: string) {
+    return this.fleetService.provisionServer(name)
+  }
+
+  @Post('provision-all')
+  async provisionAll() {
+    return this.fleetService.provisionAll()
+  }
 }

@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { fetchServer, fetchMetrics } from '@/lib/api'
+import { fetchServer, fetchMetrics, provisionServer } from '@/lib/api'
 import { MetricsChart } from '@/components/metrics-chart'
 import { PluginRunner } from '@/components/plugin-runner'
 import { StatusIndicator } from '@/components/status-indicator'
@@ -15,6 +16,21 @@ interface Props {
 
 export default function ServerPage({ params }: Props) {
   const { name } = params
+  const [provisioning, setProvisioning] = useState(false)
+  const [provisionResult, setProvisionResult] = useState<string | null>(null)
+
+  async function handleProvision() {
+    setProvisioning(true)
+    setProvisionResult(null)
+    try {
+      const res = await provisionServer(name)
+      setProvisionResult(res.ok ? 'Key deployed successfully' : `Failed: ${res.error}`)
+    } catch (e: any) {
+      setProvisionResult(`Error: ${e?.message}`)
+    } finally {
+      setProvisioning(false)
+    }
+  }
 
   const { data: server } = useQuery({
     queryKey: ['server', name],
@@ -83,13 +99,21 @@ export default function ServerPage({ params }: Props) {
           <CardHeader>
             <CardTitle>Quick actions</CardTitle>
           </CardHeader>
-          <CardContent className="flex gap-3 flex-wrap">
+          <CardContent className="flex gap-3 flex-wrap items-center">
             <Link href={`/server/${name}/terminal`}>
               <Button variant="outline">SSH Terminal</Button>
             </Link>
             <Link href={`/wizard/node-setup?server=${name}`}>
               <Button variant="outline">Setup Node</Button>
             </Link>
+            <Button variant="outline" onClick={handleProvision} disabled={provisioning}>
+              {provisioning ? 'Provisioning…' : 'Provision SSH Key'}
+            </Button>
+            {provisionResult && (
+              <span className={`text-sm ${provisionResult.startsWith('Key') ? 'text-green-500' : 'text-red-500'}`}>
+                {provisionResult}
+              </span>
+            )}
           </CardContent>
         </Card>
 
