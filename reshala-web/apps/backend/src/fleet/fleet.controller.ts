@@ -69,4 +69,10 @@ export class FleetController {
   async provisionAll() {
     return this.fleetService.provisionAll()
   }
+
+  @Post('add-by-password')
+  async addByPassword(@Body() dto: { name: string; ip: string; password: string; user?: string; port?: number }) {
+    if (!dto.name || !dto.ip || !dto.password) throw new BadRequestException('name, ip, password required')
+    return this.fleetService.addByPassword(dto.name, dto.ip, dto.password, dto.user ?? 'root', dto.port ?? 22)
+  }
 }

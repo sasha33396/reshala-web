@@ -192,6 +192,31 @@ export class FleetService {
     }
   }
 
+  async addByPassword(
+    name: string,
+    ip: string,
+    password: string,
+    user: string,
+    port: number,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const keyPath = path.join(
+      this.sshKeysDir,
+      `id_ed25519_reshala_node_${name}_${ip.replace(/\./g, '_')}`,
+    )
+    try {
+      this.add({ name, user, ip, port, keyPath, sudoPass: password })
+    } catch (e: any) {
+      if (e?.status !== 409) return { ok: false, error: `Failed to add: ${e?.message}` }
+    }
+    try {
+      this.generateKeyPair(keyPath)
+      await this.deployPublicKey({ name, user, ip, port, keyPath, sudoPass: password })
+      return { ok: true }
+    } catch (e: any) {
+      return { ok: false, error: `Added but key deploy failed: ${e?.message}` }
+    }
+  }
+
   async provisionAll(): Promise<{ total: number; ok: number; failed: number; errors: string[] }> {
     const servers = this.getAll()
     let ok = 0

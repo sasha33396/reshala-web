@@ -38,6 +38,8 @@ export const deleteServer = (name: string) =>
   req<{ ok: boolean }>(`/fleet/${name}`, { method: 'DELETE' })
 export const provisionServer = (name: string) =>
   req<{ ok: boolean; error?: string }>(`/fleet/${name}/provision`, { method: 'POST' })
+export const addServerByPassword = (data: { name: string; ip: string; password: string; user?: string; port?: number }) =>
+  req<{ ok: boolean; error?: string }>('/fleet/add-by-password', { method: 'POST', body: JSON.stringify(data) })
 
 export async function importFleet(file: File) {
   const fd = new FormData()
