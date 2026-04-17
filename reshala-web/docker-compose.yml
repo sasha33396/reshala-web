@@ -23,17 +23,13 @@ services:
       - /root/.reshala_fleet:/app/fleet_db
       - /root/.ssh:/app/ssh_keys
       - /opt/reshala/plugins:/app/plugins:ro
+    env_file: .env
     environment:
       - NODE_ENV=production
       - FLEET_DB_PATH=/app/fleet_db
       - SSH_KEYS_DIR=/app/ssh_keys
       - PLUGINS_DIR=/app/plugins
-      - PROMETHEUS_URL=${PROMETHEUS_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
-      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
       - BACKEND_PORT=3001
-      - FRONTEND_URL=https://${DOMAIN}
     expose:
       - "3001"
 
