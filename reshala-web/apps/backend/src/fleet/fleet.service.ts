@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common'
 import * as fs from 'fs'
 import * as path from 'path'
-import { execFileSync } from 'child_process'
+import { execSync } from 'child_process'
 import { Client } from 'ssh2'
 import type { Server, FleetGroup } from '@reshala-web/shared'
 
@@ -130,7 +130,7 @@ export class FleetService {
     if (fs.existsSync(keyPath)) return
     const dir = path.dirname(keyPath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    execFileSync('ssh-keygen', ['-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'reshala'], { stdio: 'ignore' })
+    execSync(`ssh-keygen -t ed25519 -f ${shellEscapeKey(keyPath)} -N "" -C reshala -q`, { stdio: 'ignore' })
     fs.chmodSync(keyPath, 0o600)
   }
 
