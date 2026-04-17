@@ -16,6 +16,7 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "strictFunctionTypes": true,
+    "strictPropertyInitialization": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*"],

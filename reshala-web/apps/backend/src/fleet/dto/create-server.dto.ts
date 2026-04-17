@@ -3,22 +3,22 @@ import { Type } from 'class-transformer'
 
 export class CreateServerDto {
   @IsString()
-  name: string
+  name!: string
 
   @IsString()
-  user: string
+  user!: string
 
   @IsString()
-  ip: string
+  ip!: string
 
   @IsNumber()
   @Min(1)
   @Max(65535)
   @Type(() => Number)
-  port: number
+  port!: number
 
   @IsString()
-  keyPath: string
+  keyPath!: string
 
   @IsOptional()
   @IsString()

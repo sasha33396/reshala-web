@@ -15,7 +15,7 @@ import { JwtAuthGuard } from './jwt-auth.guard'
 
 class LoginDto {
   @IsString()
-  password: string
+  password!: string
 }
 
 const COOKIE_TTL_MS = 24 * 60 * 60 * 1000
