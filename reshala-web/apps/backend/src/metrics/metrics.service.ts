@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
+import * as net from 'net'
 import type { MetricData } from '@reshala-web/shared'
 
 interface PromResult {
@@ -152,28 +153,26 @@ export class MetricsService {
     return { down: this.firstValue(down), up: this.firstValue(up) }
   }
 
-  async getFleetStatus(ips: string[]): Promise<Record<string, boolean>> {
-    if (ips.length === 0) return {}
-    try {
-      const res = await axios.get(`${this.prometheusUrl}/api/v1/query`, {
-        params: { query: 'up' },
-        timeout: 5000,
-      })
-      const results: PromResult[] = res.data?.data?.result ?? []
-      const upByIp: Record<string, boolean> = {}
-      for (const r of results) {
-        const instance = r.metric.instance ?? ''
-        const ip = instance.split(':')[0]
-        if (ip) upByIp[ip] = parseFloat(r.value[1]) === 1
-      }
-      const out: Record<string, boolean> = {}
-      for (const ip of ips) {
-        out[ip] = upByIp[ip] ?? false
-      }
-      return out
-    } catch (err: any) {
-      this.logger.warn(`Fleet status query failed: ${err.message}`)
-      return Object.fromEntries(ips.map((ip) => [ip, false]))
-    }
+  private checkTcp(ip: string, port: number, timeoutMs = 3000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket()
+      const done = (result: boolean) => { socket.destroy(); resolve(result) }
+      socket.setTimeout(timeoutMs)
+      socket.once('connect', () => done(true))
+      socket.once('error', () => done(false))
+      socket.once('timeout', () => done(false))
+      socket.connect(port, ip)
+    })
+  }
+
+  async getFleetStatus(servers: { ip: string; port?: number }[]): Promise<Record<string, boolean>> {
+    if (servers.length === 0) return {}
+    const results = await Promise.all(
+      servers.map(async ({ ip, port }) => ({
+        ip,
+        online: await this.checkTcp(ip, port ?? 22),
+      })),
+    )
+    return Object.fromEntries(results.map(({ ip, online }) => [ip, online]))
   }
 }

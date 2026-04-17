@@ -43,7 +43,7 @@ export default function ServerPage({ params }: Props) {
 
       <div className="p-6 max-w-screen-xl mx-auto space-y-6">
         {/* Quick stats */}
-        {metrics && (
+        {metrics && metrics.cpu !== undefined && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="CPU" value={`${metrics.cpu.toFixed(1)}%`} />
             <StatCard label="RAM" value={`${metrics.ram.toFixed(1)}%`} />
