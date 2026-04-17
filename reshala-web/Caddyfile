@@ -1,8 +1,8 @@
 {
-	email admin@yourdomain.com
+	email aleksandr.lif1996@gmail.com
 }
 
-reshala.yourdomain.com {
+reshala.xendroweb.com {
 	handle /socket.io/* {
 		reverse_proxy backend:3001 {
 			header_up Host {host}
