@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     volumes:
       - /root/.reshala_fleet:/app/fleet_db
-      - /root/.ssh:/app/ssh_keys:ro
+      - /root/.ssh:/app/ssh_keys
       - /opt/reshala/plugins:/app/plugins:ro
     environment:
       - NODE_ENV=production
