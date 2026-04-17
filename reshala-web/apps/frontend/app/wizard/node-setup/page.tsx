@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { fetchFleet } from '@/lib/api'
@@ -25,6 +25,14 @@ interface FormState {
 }
 
 export default function NodeSetupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>}>
+      <NodeSetupWizard />
+    </Suspense>
+  )
+}
+
+function NodeSetupWizard() {
   const searchParams = useSearchParams()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>({
