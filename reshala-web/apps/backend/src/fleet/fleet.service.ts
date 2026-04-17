@@ -134,36 +134,50 @@ export class FleetService {
     fs.chmodSync(keyPath, 0o600)
   }
 
-  deployPublicKey(server: Server): Promise<void> {
+  private sshExecAndAuthorize(
+    connectConfig: Record<string, unknown>,
+    pubKey: string,
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!server.sudoPass) return reject(new Error('No password for key deployment'))
-      const pubKeyPath = `${server.keyPath}.pub`
-      if (!fs.existsSync(pubKeyPath)) return reject(new Error(`Public key not found: ${pubKeyPath}`))
-      const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
-
       const conn = new Client()
-      const timeout = setTimeout(() => { conn.end(); reject(new Error('Connection timeout')) }, 15000)
+      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 12000)
+      const done = (err?: Error) => { clearTimeout(timer); conn.end(); err ? reject(err) : resolve() }
 
       conn.on('ready', () => {
         const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF ${shellEscapeKey(pubKey)} ~/.ssh/authorized_keys 2>/dev/null || echo ${shellEscapeKey(pubKey)} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
         conn.exec(cmd, (err, stream) => {
-          if (err) { clearTimeout(timeout); conn.end(); return reject(err) }
-          stream.on('close', () => { clearTimeout(timeout); conn.end(); resolve() })
-          stream.on('error', (e: Error) => { clearTimeout(timeout); conn.end(); reject(e) })
+          if (err) return done(err)
+          stream.on('close', () => done())
+          stream.on('error', (e: Error) => done(e))
         })
       })
-
-      conn.on('error', (err) => { clearTimeout(timeout); reject(err) })
-
-      conn.connect({
-        host: server.ip,
-        port: server.port,
-        username: server.user,
-        password: server.sudoPass,
-        readyTimeout: 10000,
-        hostVerifier: () => true,
-      })
+      conn.on('error', (err) => done(err))
+      conn.connect(connectConfig as any)
     })
+  }
+
+  async deployPublicKey(server: Server): Promise<void> {
+    const pubKeyPath = `${server.keyPath}.pub`
+    if (!fs.existsSync(pubKeyPath)) throw new Error(`Public key not found: ${pubKeyPath}`)
+    const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
+
+    const base = { host: server.ip, port: server.port, username: server.user, hostVerifier: () => true, readyTimeout: 10000 }
+
+    // Try existing system keys first (reshala or default ssh keys)
+    const candidateKeys = ['id_ed25519', 'id_rsa', 'id_ecdsa'].map(k => path.join(this.sshKeysDir, k))
+    for (const keyFile of candidateKeys) {
+      if (!fs.existsSync(keyFile)) continue
+      try {
+        await this.sshExecAndAuthorize({ ...base, privateKey: fs.readFileSync(keyFile) }, pubKey)
+        return
+      } catch {
+        // try next
+      }
+    }
+
+    // Fall back to password auth
+    if (!server.sudoPass) throw new Error('No existing key worked and no password set')
+    await this.sshExecAndAuthorize({ ...base, password: server.sudoPass }, pubKey)
   }
 
   async provisionServer(name: string): Promise<{ ok: boolean; error?: string }> {
