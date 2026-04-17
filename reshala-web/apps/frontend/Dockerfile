@@ -25,4 +25,4 @@ COPY --from=builder /app/apps/frontend/next.config.js ./apps/frontend/
 COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/
 
 EXPOSE 3000
-CMD ["node_modules/.bin/next", "start", "--dir", "apps/frontend", "-p", "3000"]
+CMD ["node_modules/.bin/next", "start", "apps/frontend", "-p", "3000"]
