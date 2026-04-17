@@ -18,9 +18,12 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/apps/frontend/.next/standalone ./
-COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/frontend/.next ./apps/frontend/.next
 COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder /app/apps/frontend/next.config.js ./apps/frontend/
+COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/
 
 EXPOSE 3000
-CMD ["node", "apps/frontend/server.js"]
+CMD ["node_modules/.bin/next", "start", "--dir", "apps/frontend", "-p", "3000"]

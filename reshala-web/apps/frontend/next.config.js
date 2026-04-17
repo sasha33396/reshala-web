@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   transpilePackages: ['@reshala-web/shared'],
   async rewrites() {
     return [
