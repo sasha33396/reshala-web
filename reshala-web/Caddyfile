@@ -1,0 +1,21 @@
+{
+	email admin@yourdomain.com
+}
+
+reshala.yourdomain.com {
+	handle /socket.io/* {
+		reverse_proxy backend:3001 {
+			header_up Host {host}
+			header_up Upgrade {http.request.header.Upgrade}
+			header_up Connection {http.request.header.Connection}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy backend:3001
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
