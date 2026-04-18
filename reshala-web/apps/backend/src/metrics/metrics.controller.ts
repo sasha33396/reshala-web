@@ -3,6 +3,21 @@ import { MetricsService } from './metrics.service'
 import { FleetService } from '../fleet/fleet.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
+@Controller('internal')
+export class InternalController {
+  constructor(private readonly fleetService: FleetService) {}
+
+  // Called by Prometheus HTTP SD — no auth, internal Docker network only
+  @Get('prometheus-targets')
+  prometheusTargets() {
+    const servers = this.fleetService.getAll()
+    return servers.map((s) => ({
+      targets: [`${s.ip}:9100`],
+      labels: { name: s.name, country: s.country ?? '' },
+    }))
+  }
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller('metrics')
 export class MetricsController {

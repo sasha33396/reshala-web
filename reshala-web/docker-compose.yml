@@ -14,6 +14,22 @@ services:
       - backend
       - frontend
 
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    expose:
+      - "9090"
+    depends_on:
+      - backend
+
   backend:
     build:
       context: .
@@ -30,6 +46,7 @@ services:
       - SSH_KEYS_DIR=/app/ssh_keys
       - PLUGINS_DIR=/app/plugins
       - BACKEND_PORT=3001
+      - PROMETHEUS_URL=http://prometheus:9090
     expose:
       - "3001"
 
@@ -50,3 +67,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  prometheus_data:
