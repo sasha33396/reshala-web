@@ -71,8 +71,8 @@ export class MetricsService {
       this.query(
         `node_time_seconds{instance=~"${inst}"} - node_boot_time_seconds{instance=~"${inst}"}`,
       ),
-      this.query(`rate(node_network_receive_bytes_total{instance=~"${inst}"}[5m])`),
-      this.query(`rate(node_network_transmit_bytes_total{instance=~"${inst}"}[5m])`),
+      this.query(`sum(rate(node_network_receive_bytes_total{instance=~"${inst}",device!="lo"}[5m]))`),
+      this.query(`sum(rate(node_network_transmit_bytes_total{instance=~"${inst}",device!="lo"}[5m]))`),
       this.query(`speedtest_download_mbps{instance=~"${inst}"}`),
       this.query(`speedtest_upload_mbps{instance=~"${inst}"}`),
     ])
@@ -121,13 +121,13 @@ export class MetricsService {
         step,
       ),
       this.queryRange(
-        `rate(node_network_receive_bytes_total{instance=~"${inst}"}[5m])`,
+        `sum(rate(node_network_receive_bytes_total{instance=~"${inst}",device!="lo"}[5m]))`,
         start,
         now,
         step,
       ),
       this.queryRange(
-        `rate(node_network_transmit_bytes_total{instance=~"${inst}"}[5m])`,
+        `sum(rate(node_network_transmit_bytes_total{instance=~"${inst}",device!="lo"}[5m]))`,
         start,
         now,
         step,
