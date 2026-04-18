@@ -46,29 +46,36 @@ export class PluginsGateway implements OnGatewayConnection, OnGatewayDisconnect 
       return
     }
 
-    const servers = payload.serverName
-      ? [this.fleetService.getByName(payload.serverName)].filter(Boolean)
-      : this.fleetService.getAll()
+    const allFleet = this.fleetService.getAll()
+    const servers = (() => {
+      if (payload.serverNames?.length)
+        return payload.serverNames.map((n) => this.fleetService.getByName(n)).filter(Boolean) as typeof allFleet
+      if (payload.serverName) {
+        const s = this.fleetService.getByName(payload.serverName)
+        return s ? [s] : []
+      }
+      return allFleet
+    })()
 
-    for (const server of servers) {
-      if (!server) continue
-      client.emit('server-start', { server: server.name })
-
-      await new Promise<void>((resolve) => {
+    const runOne = (server: (typeof allFleet)[number]) =>
+      new Promise<void>((resolve) => {
+        client.emit('server-start', { server: server.name })
         this.executorService
           .runPlugin(plugin.path, server, payload.envVars ?? {})
           .subscribe({
             next: (line) => client.emit('output', { server: server.name, ...line }),
-            complete: () => {
-              client.emit('server-done', { server: server.name })
-              resolve()
-            },
-            error: (err: Error) => {
-              client.emit('server-error', { server: server.name, error: err.message })
-              resolve()
-            },
+            complete: () => { client.emit('server-done', { server: server.name }); resolve() },
+            error: (err: Error) => { client.emit('server-error', { server: server.name, error: err.message }); resolve() },
           })
       })
+
+    if (payload.parallel) {
+      const concurrency = payload.concurrency ?? 10
+      for (let i = 0; i < servers.length; i += concurrency) {
+        await Promise.all(servers.slice(i, i + concurrency).map(runOne))
+      }
+    } else {
+      for (const server of servers) await runOne(server)
     }
 
     client.emit('done')

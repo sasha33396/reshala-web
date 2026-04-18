@@ -20,7 +20,10 @@ export interface Plugin {
 export interface PluginRunPayload {
   pluginId: string
   serverName?: string
+  serverNames?: string[]
   envVars?: Record<string, string>
+  parallel?: boolean
+  concurrency?: number
 }
 
 export interface MetricData {

@@ -100,6 +100,9 @@ export default function HomePage() {
           <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }}>
             + Add Server
           </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/bulk')}>
+            Bulk Ops
+          </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
             Import
           </Button>
