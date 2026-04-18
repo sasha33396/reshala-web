@@ -103,6 +103,9 @@ export default function ServerPage({ params }: Props) {
             <Link href={`/server/${name}/terminal`}>
               <Button variant="outline">SSH Terminal</Button>
             </Link>
+            <Link href={`/server/${name}/docker`}>
+              <Button variant="outline">Docker</Button>
+            </Link>
             <Link href={`/wizard/node-setup?server=${name}`}>
               <Button variant="outline">Setup Node</Button>
             </Link>

@@ -61,3 +61,11 @@ export const fetchMetrics = (name: string) => req<MetricData>(`/metrics/${name}`
 export const fetchMetricsHistory = (name: string, minutes = 30) =>
   req<Record<string, { ts: number; value: number }[]>>(`/metrics/${name}/history?minutes=${minutes}`)
 export const fetchFleetStatus = () => req<Record<string, boolean>>('/metrics/fleet/status')
+
+// Docker
+import type { DockerContainer } from '@reshala-web/shared'
+export const fetchDockerContainers = (name: string) => req<DockerContainer[]>(`/docker/${name}/containers`)
+export const dockerControl = (name: string, id: string, action: 'start' | 'stop' | 'restart') =>
+  req<string>(`/docker/${name}/containers/${id}/${action}`, { method: 'POST' })
+export const dockerPrune = (name: string, type: 'images' | 'system') =>
+  req<string>(`/docker/${name}/prune/${type}`, { method: 'POST' })

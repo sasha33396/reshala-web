@@ -9,3 +9,7 @@ export function createPluginsSocket(): Socket {
 export function createTerminalSocket(): Socket {
   return io(`${WS_URL}/terminal`, { withCredentials: true, autoConnect: false })
 }
+
+export function createDockerSocket(): Socket {
+  return io(`${WS_URL}/docker`, { withCredentials: true, autoConnect: false })
+}
