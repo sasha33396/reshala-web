@@ -5,7 +5,7 @@ global:
 scrape_configs:
   - job_name: node_exporter
     http_sd_configs:
-      - url: http://backend:3001/internal/prometheus-targets
+      - url: http://backend:3001/api/internal/prometheus-targets
         refresh_interval: 30s
     relabel_configs:
       - source_labels: [__address__]
