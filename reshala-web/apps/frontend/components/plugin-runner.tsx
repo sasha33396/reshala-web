@@ -45,8 +45,19 @@ export function PluginRunner({ serverName }: Props) {
 
     const payload: PluginRunPayload = { pluginId: selected.id, serverName }
 
+    socket.on('connect', () => {
+      setOutput((prev) => [...prev, { server: '', type: 'stdout', data: '✓ connected, running…' }])
+      socket.emit('run', payload)
+    })
+    socket.on('connect_error', (err) => {
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `connect_error: ${err.message}` }])
+      setRunning(false)
+    })
+    socket.on('disconnect', (reason) => {
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `disconnected: ${reason}` }])
+    })
+
     socket.connect()
-    socket.emit('run', payload)
 
     socket.on('output', (line: OutputLine) => setOutput((prev) => [...prev, line]))
     socket.on('server-start', ({ server }: { server: string }) =>
