@@ -69,3 +69,5 @@ export const dockerControl = (name: string, id: string, action: 'start' | 'stop'
   req<string>(`/docker/${name}/containers/${id}/${action}`, { method: 'POST' })
 export const dockerPrune = (name: string, type: 'images' | 'system') =>
   req<string>(`/docker/${name}/prune/${type}`, { method: 'POST' })
+export const updateRemnanode = (name: string) =>
+  req<{ ok: boolean; output: string }>(`/docker/${name}/remnanode/update`, { method: 'POST' })

@@ -66,6 +66,10 @@ export class DockerService {
     return this.exec(server, cmd)
   }
 
+  async runCmd(server: Server, cmd: string): Promise<string> {
+    return this.exec(server, cmd)
+  }
+
   streamLogs(server: Server, id: string, tail = 100): Observable<PluginOutputLine> {
     return new Observable((observer) => {
       const conn = new Client()

@@ -35,4 +35,13 @@ export class DockerController {
   prune(@Param('name') name: string, @Param('type') type: 'images' | 'system') {
     return this.dockerService.prune(this.getServer(name), type)
   }
+
+  @Post(':name/remnanode/update')
+  async updateRemnanode(@Param('name') name: string) {
+    const out = await this.dockerService.runCmd(
+      this.getServer(name),
+      'cd /opt/remnanode && docker compose pull && docker compose up -d 2>&1',
+    )
+    return { ok: true, output: out }
+  }
 }
