@@ -29,7 +29,9 @@ export function ServerCard({ server, online }: Props) {
         </div>
         <p className="text-xs text-muted-foreground mb-3 font-mono">{server.ip}</p>
 
-        {metrics && online ? (
+        {online === false ? (
+          <p className="text-xs text-destructive">Offline</p>
+        ) : metrics && (metrics.cpu > 0 || metrics.ram > 0 || metrics.uptime > 0) ? (
           <>
             <MiniBar label="CPU" value={metrics.cpu} />
             <MiniBar label="RAM" value={metrics.ram} />
@@ -37,8 +39,8 @@ export function ServerCard({ server, online }: Props) {
               Up {formatUptime(metrics.uptime)}
             </p>
           </>
-        ) : online === false ? (
-          <p className="text-xs text-destructive">Offline</p>
+        ) : metrics ? (
+          <p className="text-xs text-muted-foreground/50 mt-2">No metrics</p>
         ) : (
           <div className="space-y-1.5">
             <div className="h-1.5 w-full rounded bg-muted animate-pulse" />
