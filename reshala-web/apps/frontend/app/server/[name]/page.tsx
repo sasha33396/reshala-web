@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { fetchServer, fetchMetrics, provisionServer } from '@/lib/api'
+import { fetchServer, fetchMetrics, provisionServer, updateServer } from '@/lib/api'
 import { MetricsChart } from '@/components/metrics-chart'
 import { PluginRunner } from '@/components/plugin-runner'
 import { StatusIndicator } from '@/components/status-indicator'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
 interface Props {
@@ -16,8 +17,41 @@ interface Props {
 
 export default function ServerPage({ params }: Props) {
   const { name } = params
+  const qc = useQueryClient()
   const [provisioning, setProvisioning] = useState(false)
   const [provisionResult, setProvisionResult] = useState<string | null>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({ ip: '', port: '', user: '', sudoPass: '' })
+  const [saving, setSaving] = useState(false)
+  const [saveResult, setSaveResult] = useState<string | null>(null)
+
+  function openEdit(s: any) {
+    setEditForm({ ip: s.ip, port: String(s.port), user: s.user, sudoPass: s.sudoPass ?? '' })
+    setSaveResult(null)
+    setShowEdit(true)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setSaveResult(null)
+    try {
+      await updateServer(name, {
+        ip: editForm.ip,
+        port: parseInt(editForm.port) || 22,
+        user: editForm.user,
+        sudoPass: editForm.sudoPass || undefined,
+      })
+      qc.invalidateQueries({ queryKey: ['server', name] })
+      qc.invalidateQueries({ queryKey: ['fleet'] })
+      setSaveResult('Saved')
+      setTimeout(() => setShowEdit(false), 800)
+    } catch (e: any) {
+      setSaveResult(e?.message ?? 'Error')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function handleProvision() {
     setProvisioning(true)
@@ -46,13 +80,20 @@ export default function ServerPage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-3 flex items-center gap-4">
-        <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
-          ← Fleet
-        </Link>
-        <h1 className="font-bold text-lg">{name}</h1>
-        {metrics && (
-          <StatusIndicator online={metrics.cpu !== undefined} size="md" />
+      <header className="border-b border-border px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
+            ← Fleet
+          </Link>
+          <h1 className="font-bold text-lg">{name}</h1>
+          {metrics && (
+            <StatusIndicator online={metrics.cpu !== undefined} size="md" />
+          )}
+        </div>
+        {server && (
+          <Button variant="outline" size="sm" onClick={() => openEdit(server)}>
+            Edit
+          </Button>
         )}
       </header>
 
@@ -141,6 +182,59 @@ export default function ServerPage({ params }: Props) {
           </Card>
         )}
       </div>
+
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowEdit(false)}>
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-bold text-lg mb-4">Edit {name}</h2>
+            <form onSubmit={handleSave} className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">IP Address</label>
+                <Input
+                  value={editForm.ip}
+                  onChange={(e) => setEditForm(f => ({ ...f, ip: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground">User</label>
+                  <Input
+                    value={editForm.user}
+                    onChange={(e) => setEditForm(f => ({ ...f, user: e.target.value }))}
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="text-xs text-muted-foreground">Port</label>
+                  <Input
+                    value={editForm.port}
+                    onChange={(e) => setEditForm(f => ({ ...f, port: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Password (для provision)</label>
+                <Input
+                  type="password"
+                  placeholder="оставь пустым чтобы не менять"
+                  value={editForm.sudoPass}
+                  onChange={(e) => setEditForm(f => ({ ...f, sudoPass: e.target.value }))}
+                  autoComplete="new-password"
+                />
+              </div>
+              {saveResult && (
+                <p className={`text-sm ${saveResult === 'Saved' ? 'text-green-500' : 'text-red-500'}`}>{saveResult}</p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" disabled={saving} className="flex-1">
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
