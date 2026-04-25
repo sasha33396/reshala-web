@@ -15,6 +15,7 @@ export interface ServerMetricSnapshot {
 export interface FleetAnalytics {
   timestamp: string
   totalServers: number
+  serversWithMetrics: number
   topCpu: ServerMetricSnapshot[]
   topRam: ServerMetricSnapshot[]
   topDisk: ServerMetricSnapshot[]
@@ -193,6 +194,7 @@ export class MetricsService {
       return {
         timestamp: new Date().toISOString(),
         totalServers: 0,
+        serversWithMetrics: 0,
         topCpu: [], topRam: [], topDisk: [],
         avgCpu: 0, avgRam: 0, avgDisk: 0,
         criticalCpu: 0, criticalRam: 0, criticalDisk: 0,
@@ -225,21 +227,23 @@ export class MetricsService {
       disk: diskByIp.get(s.ip) ?? 0,
     }))
 
-    const n = snapshots.length
-    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length
+    // Only include servers that returned real Prometheus data (at least one metric > 0)
+    const withMetrics = snapshots.filter((s) => s.cpu > 0 || s.ram > 0 || s.disk > 0)
+    const avg = (arr: number[]) => arr.length === 0 ? 0 : arr.reduce((a, b) => a + b, 0) / arr.length
 
     return {
       timestamp: new Date().toISOString(),
-      totalServers: n,
-      topCpu: [...snapshots].sort((a, b) => b.cpu - a.cpu).slice(0, 15),
-      topRam: [...snapshots].sort((a, b) => b.ram - a.ram).slice(0, 15),
-      topDisk: [...snapshots].sort((a, b) => b.disk - a.disk).slice(0, 15),
-      avgCpu: avg(snapshots.map((s) => s.cpu)),
-      avgRam: avg(snapshots.map((s) => s.ram)),
-      avgDisk: avg(snapshots.map((s) => s.disk)),
-      criticalCpu: snapshots.filter((s) => s.cpu >= 90).length,
-      criticalRam: snapshots.filter((s) => s.ram >= 90).length,
-      criticalDisk: snapshots.filter((s) => s.disk >= 90).length,
+      totalServers: snapshots.length,
+      serversWithMetrics: withMetrics.length,
+      topCpu: [...withMetrics].sort((a, b) => b.cpu - a.cpu).slice(0, 15),
+      topRam: [...withMetrics].sort((a, b) => b.ram - a.ram).slice(0, 15),
+      topDisk: [...withMetrics].sort((a, b) => b.disk - a.disk).slice(0, 15),
+      avgCpu: avg(withMetrics.map((s) => s.cpu)),
+      avgRam: avg(withMetrics.map((s) => s.ram)),
+      avgDisk: avg(withMetrics.map((s) => s.disk)),
+      criticalCpu: withMetrics.filter((s) => s.cpu >= 90).length,
+      criticalRam: withMetrics.filter((s) => s.ram >= 90).length,
+      criticalDisk: withMetrics.filter((s) => s.disk >= 90).length,
     }
   }
 

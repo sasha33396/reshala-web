@@ -88,7 +88,11 @@ export default function AnalyticsPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <StatBig label={t('analytics.total')} value={String(data.totalServers)} />
+              <StatBig
+                label={t('analytics.total')}
+                value={String(data.totalServers)}
+                sub={data.serversWithMetrics != null ? `${data.serversWithMetrics} ${t('analytics.withMetrics')}` : undefined}
+              />
               <StatBig label={t('analytics.avgCpu')} value={`${data.avgCpu.toFixed(1)}%`}
                 sub={data.criticalCpu > 0 ? `${data.criticalCpu} ${t('analytics.needAttention')}` : t('analytics.allGood')} />
               <StatBig label={t('analytics.avgRam')} value={`${data.avgRam.toFixed(1)}%`}

@@ -135,30 +135,10 @@ export class FleetService {
     fs.chmodSync(keyPath, 0o600)
   }
 
-  private async sshExecAndAuthorize(
-    host: string,
-    port: number,
-    authConfig: Record<string, unknown>,
-    pubKey: string,
-  ): Promise<void> {
-    const socksHost = process.env.SOCKS5_HOST
-    let sock: any = null
-    if (socksHost) {
-      try {
-        sock = await createProxiedSocket(host, port)
-        this.logger.debug(`sshExecAndAuthorize: SOCKS5 socket OK → ${host}:${port}`)
-      } catch (e: any) {
-        throw new Error(`SOCKS5 proxy cannot reach ${host}:${port} — ${e?.message ?? 'unknown'}`)
-      }
-    }
-    const connectConfig: Record<string, unknown> = sock
-      ? { sock, hostVerifier: () => true, readyTimeout: 15000, ...authConfig }
-      : { host, port, hostVerifier: () => true, readyTimeout: 12000, ...authConfig }
-    delete connectConfig.host_placeholder
-
+  private doSshExec(connectConfig: Record<string, unknown>, pubKey: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const conn = new Client()
-      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 20000)
+      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 15000)
       const done = (err?: Error) => { clearTimeout(timer); conn.end(); err ? reject(err) : resolve() }
 
       conn.on('ready', () => {
@@ -172,6 +152,35 @@ export class FleetService {
       conn.on('error', (err) => done(err))
       conn.connect(connectConfig as any)
     })
+  }
+
+  private async sshExecAndAuthorize(
+    host: string,
+    port: number,
+    authConfig: Record<string, unknown>,
+    pubKey: string,
+  ): Promise<void> {
+    const base = { hostVerifier: () => true, ...authConfig }
+
+    // Try direct connection first (faster for servers on the same network/region)
+    try {
+      await this.doSshExec({ host, port, readyTimeout: 10000, ...base }, pubKey)
+      return
+    } catch (e: any) {
+      this.logger.debug(`sshExecAndAuthorize ${host}: direct failed (${e?.message}), trying SOCKS5`)
+      // Auth failure means server is reachable but creds are wrong — no point trying SOCKS5
+      if (e?.message?.includes('authentication') || e?.message?.includes('Authentication')) {
+        throw e
+      }
+    }
+
+    // Fallback to SOCKS5 if configured (for servers unreachable directly)
+    const socksHost = process.env.SOCKS5_HOST
+    if (!socksHost) throw new Error(`SSH timeout (direct)`)
+    const sock = await createProxiedSocket(host, port).catch((e: any) => {
+      throw new Error(`SOCKS5 cannot reach ${host}:${port} — ${e?.message}`)
+    })
+    await this.doSshExec({ sock, readyTimeout: 15000, ...base }, pubKey)
   }
 
   async deployPublicKey(server: Server): Promise<void> {
