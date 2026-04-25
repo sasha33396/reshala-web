@@ -4,6 +4,7 @@ import * as path from 'path'
 import { execSync } from 'child_process'
 import { Client } from 'ssh2'
 import type { Server, FleetGroup } from '@reshala-web/shared'
+import { createProxiedSocket } from '../common/ssh.utils'
 
 const COUNTRY_MAP: Record<string, string> = {
   ru: '🇷🇺 Russia',
@@ -134,13 +135,21 @@ export class FleetService {
     fs.chmodSync(keyPath, 0o600)
   }
 
-  private sshExecAndAuthorize(
-    connectConfig: Record<string, unknown>,
+  private async sshExecAndAuthorize(
+    host: string,
+    port: number,
+    authConfig: Record<string, unknown>,
     pubKey: string,
   ): Promise<void> {
+    const sock = await createProxiedSocket(host, port).catch(() => null)
+    const connectConfig: Record<string, unknown> = sock
+      ? { sock, username: authConfig.username, hostVerifier: () => true, readyTimeout: 15000, ...authConfig }
+      : { host, port, username: authConfig.username, hostVerifier: () => true, readyTimeout: 12000, ...authConfig }
+    delete connectConfig.host_placeholder
+
     return new Promise((resolve, reject) => {
       const conn = new Client()
-      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 12000)
+      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 20000)
       const done = (err?: Error) => { clearTimeout(timer); conn.end(); err ? reject(err) : resolve() }
 
       conn.on('ready', () => {
@@ -161,14 +170,14 @@ export class FleetService {
     if (!fs.existsSync(pubKeyPath)) throw new Error(`Public key not found: ${pubKeyPath}`)
     const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
 
-    const base = { host: server.ip, port: server.port, username: server.user, hostVerifier: () => true, readyTimeout: 10000 }
+    const base = { username: server.user }
 
-    // Try existing system keys first (reshala or default ssh keys)
+    // Try existing system keys first
     const candidateKeys = ['id_ed25519', 'id_rsa', 'id_ecdsa'].map(k => path.join(this.sshKeysDir, k))
     for (const keyFile of candidateKeys) {
       if (!fs.existsSync(keyFile)) continue
       try {
-        await this.sshExecAndAuthorize({ ...base, privateKey: fs.readFileSync(keyFile) }, pubKey)
+        await this.sshExecAndAuthorize(server.ip, server.port, { ...base, privateKey: fs.readFileSync(keyFile) }, pubKey)
         return
       } catch {
         // try next
@@ -177,7 +186,7 @@ export class FleetService {
 
     // Fall back to password auth
     if (!server.sudoPass) throw new Error('No existing key worked and no password set')
-    await this.sshExecAndAuthorize({ ...base, password: server.sudoPass }, pubKey)
+    await this.sshExecAndAuthorize(server.ip, server.port, { ...base, password: server.sudoPass }, pubKey)
   }
 
   async provisionServer(name: string): Promise<{ ok: boolean; error?: string }> {
@@ -222,16 +231,33 @@ export class FleetService {
     let ok = 0
     let failed = 0
     const errors: string[] = []
-    for (const server of servers) {
-      try {
-        this.generateKeyPair(server.keyPath)
-        await this.deployPublicKey(server)
-        ok++
-      } catch (e: any) {
-        failed++
-        errors.push(`${server.name}: ${e?.message ?? 'unknown'}`)
+    const CONCURRENCY = 20
+
+    this.logger.log(`provisionAll: starting for ${servers.length} servers (${CONCURRENCY} concurrent)`)
+
+    for (let i = 0; i < servers.length; i += CONCURRENCY) {
+      const chunk = servers.slice(i, i + CONCURRENCY)
+      this.logger.log(`provisionAll: batch ${i + 1}–${Math.min(i + CONCURRENCY, servers.length)} / ${servers.length}`)
+      const results = await Promise.allSettled(
+        chunk.map(async (server) => {
+          this.generateKeyPair(server.keyPath)
+          await this.deployPublicKey(server)
+        }),
+      )
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j]
+        if (r.status === 'fulfilled') {
+          ok++
+        } else {
+          failed++
+          const msg = `${chunk[j].name}: ${(r.reason as any)?.message ?? 'unknown'}`
+          errors.push(msg)
+          this.logger.warn(`provisionAll FAIL: ${msg}`)
+        }
       }
     }
+
+    this.logger.log(`provisionAll: done — ok=${ok} failed=${failed}`)
     return { total: servers.length, ok, failed, errors }
   }
 

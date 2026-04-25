@@ -32,6 +32,17 @@ function getSocksProxy() {
   }
 }
 
+export async function createProxiedSocket(host: string, port: number): Promise<any | null> {
+  const proxy = getSocksProxy()
+  if (!proxy) return null
+  const { socket } = await SocksClient.createConnection({
+    proxy,
+    command: 'connect',
+    destination: { host, port },
+  })
+  return socket
+}
+
 export async function connectSsh(conn: Client, server: Server): Promise<void> {
   const proxy = getSocksProxy()
   if (proxy) {
