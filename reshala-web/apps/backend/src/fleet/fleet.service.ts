@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common'
 import * as fs from 'fs'
 import * as path from 'path'
-import { execSync } from 'child_process'
-import { Client } from 'ssh2'
+import { execFile, execSync } from 'child_process'
+import { createServer } from 'net'
+import { promisify } from 'util'
+import { SocksClient } from 'socks'
 import type { Server, FleetGroup } from '@reshala-web/shared'
-import { createProxiedSocket } from '../common/ssh.utils'
+
+const execFileAsync = promisify(execFile)
 
 const COUNTRY_MAP: Record<string, string> = {
   ru: '🇷🇺 Russia',
@@ -135,52 +138,93 @@ export class FleetService {
     fs.chmodSync(keyPath, 0o600)
   }
 
-  private doSshExec(connectConfig: Record<string, unknown>, pubKey: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const conn = new Client()
-      const timer = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 15000)
-      const done = (err?: Error) => { clearTimeout(timer); conn.end(); err ? reject(err) : resolve() }
+  // ── CLI-based SSH helpers (avoid ssh2 handshake compatibility issues) ──
 
-      conn.on('ready', () => {
-        const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF ${shellEscapeKey(pubKey)} ~/.ssh/authorized_keys 2>/dev/null || echo ${shellEscapeKey(pubKey)} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
-        conn.exec(cmd, (err, stream) => {
-          if (err) return done(err)
-          stream.on('close', () => done())
-          stream.on('error', (e: Error) => done(e))
+  private getSocksProxy() {
+    const host = process.env.SOCKS5_HOST
+    if (!host) return null
+    return {
+      host,
+      port: parseInt(process.env.SOCKS5_PORT ?? '1080'),
+      type: 5 as const,
+      userId: process.env.SOCKS5_USER || undefined,
+      password: process.env.SOCKS5_PASS || undefined,
+    }
+  }
+
+  /** Creates a local TCP port that tunnels to targetHost:targetPort via SOCKS5. */
+  private createSocksForwarder(
+    targetHost: string,
+    targetPort: number,
+  ): Promise<{ localPort: number; close: () => void }> {
+    const proxy = this.getSocksProxy()
+    if (!proxy) return Promise.reject(new Error('No SOCKS5 proxy configured'))
+    return new Promise((resolve, reject) => {
+      const server = createServer()
+      server.listen(0, '127.0.0.1', () => {
+        const { port: localPort } = server.address() as { port: number }
+        server.on('connection', async (client) => {
+          try {
+            const { socket: remote } = await SocksClient.createConnection({
+              proxy,
+              command: 'connect',
+              destination: { host: targetHost, port: targetPort },
+            })
+            client.pipe(remote)
+            remote.pipe(client)
+            client.once('close', () => remote.destroy())
+            remote.once('close', () => client.destroy())
+          } catch {
+            client.destroy()
+          }
         })
+        resolve({ localPort, close: () => server.close() })
       })
-      conn.on('error', (err) => done(err))
-      conn.connect(connectConfig as any)
+      server.once('error', reject)
     })
   }
 
-  private async sshExecAndAuthorize(
+  private async execSshWithPassword(
     host: string,
     port: number,
-    authConfig: Record<string, unknown>,
-    pubKey: string,
+    user: string,
+    password: string,
+    command: string,
   ): Promise<void> {
-    const base = { hostVerifier: () => true, ...authConfig }
+    await execFileAsync(
+      'sshpass',
+      ['-e', 'ssh',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-o', 'ConnectTimeout=15',
+        '-p', String(port),
+        `${user}@${host}`,
+        command,
+      ],
+      { timeout: 22000, env: { ...process.env, SSHPASS: password } },
+    )
+  }
 
-    // Try direct connection first (faster for servers on the same network/region)
-    try {
-      await this.doSshExec({ host, port, readyTimeout: 10000, ...base }, pubKey)
-      return
-    } catch (e: any) {
-      this.logger.debug(`sshExecAndAuthorize ${host}: direct failed (${e?.message}), trying SOCKS5`)
-      // Auth failure means server is reachable but creds are wrong — no point trying SOCKS5
-      if (e?.message?.includes('authentication') || e?.message?.includes('Authentication')) {
-        throw e
-      }
-    }
-
-    // Fallback to SOCKS5 if configured (for servers unreachable directly)
-    const socksHost = process.env.SOCKS5_HOST
-    if (!socksHost) throw new Error(`SSH timeout (direct)`)
-    const sock = await createProxiedSocket(host, port).catch((e: any) => {
-      throw new Error(`SOCKS5 cannot reach ${host}:${port} — ${e?.message}`)
-    })
-    await this.doSshExec({ sock, readyTimeout: 15000, ...base }, pubKey)
+  private async execSshWithKey(
+    host: string,
+    port: number,
+    user: string,
+    keyPath: string,
+    command: string,
+  ): Promise<void> {
+    await execFileAsync(
+      'ssh',
+      ['-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-o', 'ConnectTimeout=15',
+        '-o', 'BatchMode=yes',
+        '-i', keyPath,
+        '-p', String(port),
+        `${user}@${host}`,
+        command,
+      ],
+      { timeout: 22000 },
+    )
   }
 
   async deployPublicKey(server: Server): Promise<void> {
@@ -188,30 +232,59 @@ export class FleetService {
     if (!fs.existsSync(pubKeyPath)) throw new Error(`Public key not found: ${pubKeyPath}`)
     const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
 
-    const base = { username: server.user }
+    const cmd = `mkdir -p ~/.ssh && chmod 700 ~/.ssh && grep -qxF ${shellEscapeKey(pubKey)} ~/.ssh/authorized_keys 2>/dev/null || echo ${shellEscapeKey(pubKey)} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
 
-    // Candidate keys: server's own reshala key first (already deployed → works even if password auth disabled),
-    // then generic system keys in the container's ~/.ssh/
-    const candidateKeys = [
-      server.keyPath,
-      ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map(k => path.join(this.sshKeysDir, k)),
-    ]
-    for (const keyFile of candidateKeys) {
-      if (!fs.existsSync(keyFile)) continue
-      this.logger.debug(`deployPublicKey ${server.name}: trying key ${path.basename(keyFile)}`)
+    type SshFn = (host: string, port: number) => Promise<void>
+
+    const tryDirect = async (label: string, fn: SshFn): Promise<boolean> => {
       try {
-        await this.sshExecAndAuthorize(server.ip, server.port, { ...base, privateKey: fs.readFileSync(keyFile) }, pubKey)
-        this.logger.log(`deployPublicKey ${server.name}: OK via ${path.basename(keyFile)}`)
-        return
+        await fn(server.ip, server.port)
+        this.logger.log(`deployPublicKey ${server.name}: OK via ${label} direct`)
+        return true
       } catch (e: any) {
-        this.logger.debug(`deployPublicKey ${server.name}: key ${path.basename(keyFile)} failed — ${e?.message}`)
+        const msg = (e?.stderr?.toString()?.trim() ?? e?.message ?? '').split('\n')[0]
+        this.logger.debug(`deployPublicKey ${server.name}: ${label} direct failed — ${msg}`)
+        return false
       }
     }
 
-    // Fall back to password auth
-    if (!server.sudoPass) throw new Error('No existing key worked and no password set')
-    this.logger.debug(`deployPublicKey ${server.name}: trying password auth`)
-    await this.sshExecAndAuthorize(server.ip, server.port, { ...base, password: server.sudoPass }, pubKey)
+    const trySocks = async (label: string, fn: SshFn): Promise<boolean> => {
+      if (!process.env.SOCKS5_HOST) return false
+      let forwarder: { localPort: number; close: () => void } | null = null
+      try {
+        forwarder = await this.createSocksForwarder(server.ip, server.port)
+        await fn('127.0.0.1', forwarder.localPort)
+        this.logger.log(`deployPublicKey ${server.name}: OK via ${label} SOCKS5`)
+        return true
+      } catch (e: any) {
+        const msg = (e?.stderr?.toString()?.trim() ?? e?.message ?? '').split('\n')[0]
+        this.logger.debug(`deployPublicKey ${server.name}: ${label} SOCKS5 failed — ${msg}`)
+        return false
+      } finally {
+        forwarder?.close()
+      }
+    }
+
+    // Password first — fastest path for initial provisioning (keys not yet deployed)
+    if (server.sudoPass) {
+      const pwFn: SshFn = (h, p) => this.execSshWithPassword(h, p, server.user, server.sudoPass!, cmd)
+      if (await tryDirect('password', pwFn)) return
+      if (await trySocks('password', pwFn)) return
+    }
+
+    // Key fallback — for servers where password auth is disabled
+    const candidateKeys = [
+      server.keyPath,
+      ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map((k) => path.join(this.sshKeysDir, k)),
+    ]
+    for (const keyFile of candidateKeys) {
+      if (!fs.existsSync(keyFile)) continue
+      const keyFn: SshFn = (h, p) => this.execSshWithKey(h, p, server.user, keyFile, cmd)
+      if (await tryDirect(`key ${path.basename(keyFile)}`, keyFn)) return
+      if (await trySocks(`key ${path.basename(keyFile)}`, keyFn)) return
+    }
+
+    throw new Error(server.sudoPass ? 'Wrong password and no valid key worked' : 'No valid key and no password set')
   }
 
   async provisionServer(name: string): Promise<{ ok: boolean; error?: string }> {
@@ -331,7 +404,6 @@ export class FleetService {
       }
     }
 
-    // Deploy SSH keys in parallel (20 concurrent)
     let provisioned = 0
     let provisionFailed = 0
     const CONCURRENCY = 20
