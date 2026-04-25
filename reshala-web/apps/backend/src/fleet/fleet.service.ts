@@ -235,10 +235,17 @@ export class FleetService {
     return { total: servers.length, ok, failed, errors }
   }
 
-  importFromText(content: string): { added: number; skipped: number; errors: string[] } {
+  async importFromText(content: string): Promise<{
+    added: number
+    skipped: number
+    errors: string[]
+    provisioned: number
+    provisionFailed: number
+  }> {
     const errors: string[] = []
     let added = 0
     let skipped = 0
+    const toProvision: Server[] = []
 
     const rows = content.split('\n').filter((l) => l.trim().length > 0)
     for (const row of rows) {
@@ -256,24 +263,38 @@ export class FleetService {
         this.sshKeysDir,
         `id_ed25519_reshala_node_${name}_${ip.replace(/\./g, '_')}`,
       )
+      const server: Server = { name, user: 'root', ip, port: 22, keyPath, sudoPass: sudoPass ?? '' }
       try {
-        this.add({ name, user: 'root', ip, port: 22, keyPath, sudoPass: sudoPass ?? '' })
+        this.add(server)
         added++
+        try { this.generateKeyPair(keyPath) } catch (e: any) {
+          this.logger.warn(`Key gen failed for ${name}: ${e?.message}`)
+        }
+        if (sudoPass?.trim()) toProvision.push(server)
       } catch (e: any) {
         if (e?.status === 409) {
           skipped++
         } else {
           errors.push(`${name}: ${e?.message ?? 'unknown error'}`)
-          continue
         }
       }
-      // Generate key pair if missing (non-blocking, errors logged but don't fail import)
-      try {
-        this.generateKeyPair(keyPath)
-      } catch (e: any) {
-        this.logger.warn(`Key gen failed for ${name}: ${e?.message}`)
+    }
+
+    // Deploy SSH keys in parallel (20 concurrent)
+    let provisioned = 0
+    let provisionFailed = 0
+    const CONCURRENCY = 20
+    for (let i = 0; i < toProvision.length; i += CONCURRENCY) {
+      const chunk = toProvision.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(
+        chunk.map((s) => this.deployPublicKey(s)),
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') provisioned++
+        else provisionFailed++
       }
     }
-    return { added, skipped, errors }
+
+    return { added, skipped, errors, provisioned, provisionFailed }
   }
 }

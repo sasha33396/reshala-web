@@ -16,6 +16,8 @@ interface ImportResult {
   added: number
   skipped: number
   errors: string[]
+  provisioned?: number
+  provisionFailed?: number
 }
 
 function parsePreview(content: string): PreviewRow[] {
@@ -156,6 +158,12 @@ export default function ImportPage() {
             <p className="font-medium">Import complete</p>
             <p className="text-sm text-green-400">✓ Added: {result.added}</p>
             <p className="text-sm text-muted-foreground">⟳ Skipped: {result.skipped}</p>
+            {result.provisioned !== undefined && (
+              <p className="text-sm text-green-400">🔑 Keys deployed: {result.provisioned}</p>
+            )}
+            {result.provisionFailed !== undefined && result.provisionFailed > 0 && (
+              <p className="text-sm text-yellow-400">⚠ Key deploy failed: {result.provisionFailed} (use Provision All later)</p>
+            )}
             {result.errors.length > 0 && (
               <div>
                 <p className="text-sm text-destructive">✗ Errors: {result.errors.length}</p>

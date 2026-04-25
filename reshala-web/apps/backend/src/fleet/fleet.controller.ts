@@ -57,7 +57,7 @@ export class FleetController {
   async importFleet(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded')
     const content = file.buffer.toString('utf-8')
-    return this.fleetService.importFromText(content)
+    return await this.fleetService.importFromText(content)
   }
 
   @Post(':name/provision')

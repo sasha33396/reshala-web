@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword } from '@/lib/api'
+import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll } from '@/lib/api'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,8 @@ export default function HomePage() {
   const [addForm, setAddForm] = useState({ name: '', ip: '', password: '', user: 'root', port: '22' })
   const [adding, setAdding] = useState(false)
   const [addResult, setAddResult] = useState<string | null>(null)
+  const [provisioning, setProvisioning] = useState(false)
+  const [provisionResult, setProvisionResult] = useState<{ total: number; ok: number; failed: number } | null>(null)
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -74,6 +76,17 @@ export default function HomePage() {
   const totalOnline = Object.values(statusMap).filter(Boolean).length
   const totalServers = groups.reduce((n, g) => n + g.servers.length, 0)
 
+  async function handleProvisionAll() {
+    setProvisioning(true)
+    setProvisionResult(null)
+    try {
+      const res = await provisionAll()
+      setProvisionResult(res)
+    } finally {
+      setProvisioning(false)
+    }
+  }
+
   async function handleLogout() {
     await logout()
     router.push('/login')
@@ -114,6 +127,15 @@ export default function HomePage() {
           <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
             {t('nav.import')}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleProvisionAll}
+            disabled={provisioning}
+            title="Deploy SSH keys to all servers using stored passwords"
+          >
+            {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
+          </Button>
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             {t('nav.logout')}
@@ -132,6 +154,20 @@ export default function HomePage() {
           <FleetGrid groups={filtered} statusMap={statusMap} />
         )}
       </div>
+
+      {provisionResult && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setProvisionResult(null)}>
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm mx-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-bold text-lg">Provision All — Done</h2>
+            <p className="text-sm text-muted-foreground">Total servers: {provisionResult.total}</p>
+            <p className="text-sm text-green-400">✓ Keys deployed: {provisionResult.ok}</p>
+            {provisionResult.failed > 0 && (
+              <p className="text-sm text-yellow-400">⚠ Failed: {provisionResult.failed} (no password or unreachable)</p>
+            )}
+            <Button onClick={() => setProvisionResult(null)} className="w-full">Close</Button>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowAdd(false)}>
