@@ -324,6 +324,12 @@ export class FleetService {
     }
   }
 
+  private _provisionProgress = { running: false, total: 0, done: 0, ok: 0, failed: 0 }
+
+  getProvisionProgress() {
+    return { ...this._provisionProgress }
+  }
+
   async provisionAll(): Promise<{ total: number; ok: number; failed: number; errors: string[] }> {
     const servers = this.getAll()
     let ok = 0
@@ -331,6 +337,7 @@ export class FleetService {
     const errors: string[] = []
     const CONCURRENCY = 20
 
+    this._provisionProgress = { running: true, total: servers.length, done: 0, ok: 0, failed: 0 }
     this.logger.log(`provisionAll: starting for ${servers.length} servers (${CONCURRENCY} concurrent)`)
 
     for (let i = 0; i < servers.length; i += CONCURRENCY) {
@@ -352,9 +359,13 @@ export class FleetService {
           errors.push(msg)
           this.logger.warn(`provisionAll FAIL: ${msg}`)
         }
+        this._provisionProgress.done++
+        this._provisionProgress.ok = ok
+        this._provisionProgress.failed = failed
       }
     }
 
+    this._provisionProgress.running = false
     this.logger.log(`provisionAll: done — ok=${ok} failed=${failed}`)
     return { total: servers.length, ok, failed, errors }
   }

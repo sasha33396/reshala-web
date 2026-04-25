@@ -40,6 +40,8 @@ export const provisionServer = (name: string) =>
   req<{ ok: boolean; error?: string }>(`/fleet/${name}/provision`, { method: 'POST' })
 export const provisionAll = () =>
   req<{ total: number; ok: number; failed: number; errors: string[] }>('/fleet/provision-all', { method: 'POST', body: '{}' })
+export const fetchProvisionProgress = () =>
+  req<{ running: boolean; total: number; done: number; ok: number; failed: number }>('/fleet/provision-progress')
 export const addServerByPassword = (data: { name: string; ip: string; password: string; user?: string; port?: number }) =>
   req<{ ok: boolean; error?: string }>('/fleet/add-by-password', { method: 'POST', body: JSON.stringify(data) })
 

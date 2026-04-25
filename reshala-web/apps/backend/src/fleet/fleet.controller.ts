@@ -28,6 +28,11 @@ export class FleetController {
     return this.fleetService.getGrouped()
   }
 
+  @Get('provision-progress')
+  getProvisionProgress() {
+    return this.fleetService.getProvisionProgress()
+  }
+
   @Get(':name')
   getOne(@Param('name') name: string) {
     const server = this.fleetService.getByName(name)

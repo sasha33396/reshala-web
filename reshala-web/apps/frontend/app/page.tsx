@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll } from '@/lib/api'
+import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress } from '@/lib/api'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,8 @@ export default function HomePage() {
   const [addResult, setAddResult] = useState<string | null>(null)
   const [provisioning, setProvisioning] = useState(false)
   const [provisionResult, setProvisionResult] = useState<{ total: number; ok: number; failed: number } | null>(null)
+  const [progress, setProgress] = useState<{ total: number; done: number; ok: number; failed: number } | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -79,11 +81,24 @@ export default function HomePage() {
   async function handleProvisionAll() {
     setProvisioning(true)
     setProvisionResult(null)
+    setProgress(null)
+    pollRef.current = setInterval(async () => {
+      try {
+        const p = await fetchProvisionProgress()
+        setProgress({ total: p.total, done: p.done, ok: p.ok, failed: p.failed })
+        if (!p.running && p.total > 0) {
+          clearInterval(pollRef.current!)
+          pollRef.current = null
+        }
+      } catch {}
+    }, 600)
     try {
       const res = await provisionAll()
       setProvisionResult(res)
     } finally {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       setProvisioning(false)
+      setProgress(null)
     }
   }
 
@@ -127,15 +142,30 @@ export default function HomePage() {
           <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
             {t('nav.import')}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleProvisionAll}
-            disabled={provisioning}
-            title="Deploy SSH keys to all servers using stored passwords"
-          >
-            {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
-          </Button>
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleProvisionAll}
+              disabled={provisioning}
+              title="Deploy SSH keys to all servers using stored passwords"
+            >
+              {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
+            </Button>
+            {provisioning && progress && progress.total > 0 && (
+              <div className="w-36">
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                  {progress.done}/{progress.total} • ✓{progress.ok} ✗{progress.failed}
+                </p>
+              </div>
+            )}
+          </div>
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             {t('nav.logout')}
