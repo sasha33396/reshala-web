@@ -4,13 +4,10 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
-  fetchAlertsConfig,
-  saveAlertsConfig,
-  sendTestAlert,
-  runAlertCheck,
-  fetchAlertHistory,
-  clearAlertHistory,
+  fetchAlertsConfig, saveAlertsConfig, sendTestAlert,
+  runAlertCheck, fetchAlertHistory, clearAlertHistory,
 } from '@/lib/api'
+import { useT, LangToggle } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -20,15 +17,16 @@ function formatDate(iso: string) {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-const METRIC_LABELS: Record<string, string> = {
-  cpu: 'CPU',
-  ram: 'RAM',
-  disk: 'Disk',
-  offline: 'Offline',
+const METRIC_COLORS: Record<string, string> = {
+  cpu: 'bg-orange-900/40 text-orange-300',
+  ram: 'bg-blue-900/40 text-blue-300',
+  disk: 'bg-yellow-900/40 text-yellow-300',
+  offline: 'bg-red-900/40 text-red-300',
 }
 
 export default function AlertsPage() {
   const qc = useQueryClient()
+  const { t } = useT()
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -67,9 +65,9 @@ export default function AlertsPage() {
     try {
       await saveAlertsConfig(effectiveForm)
       qc.invalidateQueries({ queryKey: ['alerts-config'] })
-      setMsg({ text: 'Config saved', ok: true })
+      setMsg({ text: t('common.saved'), ok: true })
     } catch (e: any) {
-      setMsg({ text: e?.message ?? 'Save failed', ok: false })
+      setMsg({ text: e?.message ?? t('common.error'), ok: false })
     } finally {
       setSaving(false)
     }
@@ -82,7 +80,7 @@ export default function AlertsPage() {
       const res = await sendTestAlert()
       setMsg({ text: res.ok ? 'Test notification sent ✅' : `Failed: ${res.error}`, ok: res.ok })
     } catch (e: any) {
-      setMsg({ text: e?.message ?? 'Error', ok: false })
+      setMsg({ text: e?.message ?? t('common.error'), ok: false })
     } finally {
       setTesting(false)
     }
@@ -93,10 +91,10 @@ export default function AlertsPage() {
     setMsg(null)
     try {
       const res = await runAlertCheck()
-      setMsg({ text: `Check done: ${res.checked} servers, ${res.fired} alerts fired`, ok: true })
+      setMsg({ text: `${t('alerts.checkDone')}: ${res.checked} ${t('alerts.serversChecked')}, ${res.fired} ${t('alerts.alertsFired')}`, ok: true })
       qc.invalidateQueries({ queryKey: ['alerts-history'] })
     } catch (e: any) {
-      setMsg({ text: e?.message ?? 'Error', ok: false })
+      setMsg({ text: e?.message ?? t('common.error'), ok: false })
     } finally {
       setChecking(false)
     }
@@ -112,7 +110,7 @@ export default function AlertsPage() {
       <main className="min-h-screen bg-background">
         <header className="border-b border-border px-6 py-3 flex items-center gap-4">
           <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
-          <h1 className="font-bold text-lg">Alerts</h1>
+          <h1 className="font-bold text-lg">{t('alerts.title')}</h1>
         </header>
         <div className="p-6 space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -130,14 +128,15 @@ export default function AlertsPage() {
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
-          <h1 className="font-bold text-lg">Alerts</h1>
+          <h1 className="font-bold text-lg">{t('alerts.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <LangToggle />
           <Button variant="outline" size="sm" onClick={handleCheck} disabled={checking}>
-            {checking ? 'Checking…' : 'Run Check Now'}
+            {checking ? t('alerts.checking') : t('alerts.runCheck')}
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Config'}
+            {saving ? t('alerts.saving') : t('alerts.saveConfig')}
           </Button>
         </div>
       </header>
@@ -149,11 +148,8 @@ export default function AlertsPage() {
           </div>
         )}
 
-        {/* Enable toggle */}
         <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>{t('alerts.status')}</CardTitle></CardHeader>
           <CardContent className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -162,72 +158,44 @@ export default function AlertsPage() {
                 checked={f.enabled}
                 onChange={(e) => setField('enabled', e.target.checked)}
               />
-              <span className="text-sm font-medium">Enable automatic alerts</span>
+              <span className="text-sm font-medium">{t('alerts.enableAuto')}</span>
             </label>
             <span className="text-xs text-muted-foreground">
-              Checks every {f.checkIntervalMinutes} min, cooldown {f.cooldownMinutes} min per alert
+              {t('alerts.checkEvery')} {f.checkIntervalMinutes} {t('alerts.cooldown')} {f.cooldownMinutes} {t('alerts.min')}
             </span>
           </CardContent>
         </Card>
 
-        {/* Thresholds */}
         <Card>
-          <CardHeader>
-            <CardTitle>Thresholds</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>{t('alerts.thresholds')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs text-muted-foreground">CPU alert at (%)</label>
-                <Input
-                  type="number"
-                  min={50}
-                  max={100}
-                  value={f.thresholds.cpuPercent}
-                  onChange={(e) => setField('thresholds.cpuPercent', parseInt(e.target.value))}
-                />
+                <label className="text-xs text-muted-foreground">{t('alerts.cpuAt')}</label>
+                <Input type="number" min={50} max={100} value={f.thresholds.cpuPercent}
+                  onChange={(e) => setField('thresholds.cpuPercent', parseInt(e.target.value))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">RAM alert at (%)</label>
-                <Input
-                  type="number"
-                  min={50}
-                  max={100}
-                  value={f.thresholds.ramPercent}
-                  onChange={(e) => setField('thresholds.ramPercent', parseInt(e.target.value))}
-                />
+                <label className="text-xs text-muted-foreground">{t('alerts.ramAt')}</label>
+                <Input type="number" min={50} max={100} value={f.thresholds.ramPercent}
+                  onChange={(e) => setField('thresholds.ramPercent', parseInt(e.target.value))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Disk alert at (%)</label>
-                <Input
-                  type="number"
-                  min={50}
-                  max={100}
-                  value={f.thresholds.diskPercent}
-                  onChange={(e) => setField('thresholds.diskPercent', parseInt(e.target.value))}
-                />
+                <label className="text-xs text-muted-foreground">{t('alerts.diskAt')}</label>
+                <Input type="number" min={50} max={100} value={f.thresholds.diskPercent}
+                  onChange={(e) => setField('thresholds.diskPercent', parseInt(e.target.value))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-muted-foreground">Check interval (minutes)</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={f.checkIntervalMinutes}
-                  onChange={(e) => setField('checkIntervalMinutes', parseInt(e.target.value))}
-                />
+                <label className="text-xs text-muted-foreground">{t('alerts.interval')}</label>
+                <Input type="number" min={1} max={60} value={f.checkIntervalMinutes}
+                  onChange={(e) => setField('checkIntervalMinutes', parseInt(e.target.value))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Cooldown per alert (minutes)</label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={1440}
-                  value={f.cooldownMinutes}
-                  onChange={(e) => setField('cooldownMinutes', parseInt(e.target.value))}
-                />
+                <label className="text-xs text-muted-foreground">{t('alerts.cooldownMin')}</label>
+                <Input type="number" min={5} max={1440} value={f.cooldownMinutes}
+                  onChange={(e) => setField('cooldownMinutes', parseInt(e.target.value))} />
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -237,66 +205,54 @@ export default function AlertsPage() {
                 checked={f.thresholds.offlineCheck}
                 onChange={(e) => setField('thresholds.offlineCheck', e.target.checked)}
               />
-              <span className="text-sm">Alert when server appears offline (no metrics)</span>
+              <span className="text-sm">{t('alerts.offlineCheck')}</span>
             </label>
           </CardContent>
         </Card>
 
-        {/* Telegram */}
         <Card>
-          <CardHeader>
-            <CardTitle>Telegram Notifications</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>{t('alerts.telegram')}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <label className="text-xs text-muted-foreground">Bot Token</label>
-              <Input
-                type="password"
-                placeholder="123456789:AAF..."
-                value={f.telegramBotToken}
-                onChange={(e) => setField('telegramBotToken', e.target.value)}
-                autoComplete="off"
-              />
+              <label className="text-xs text-muted-foreground">{t('alerts.botToken')}</label>
+              <Input type="password" placeholder="123456789:AAF..." value={f.telegramBotToken}
+                onChange={(e) => setField('telegramBotToken', e.target.value)} autoComplete="off" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Chat ID</label>
-              <Input
-                placeholder="-100123456789 or @channel"
-                value={f.telegramChatId}
-                onChange={(e) => setField('telegramChatId', e.target.value)}
-              />
+              <label className="text-xs text-muted-foreground">{t('alerts.chatId')}</label>
+              <Input placeholder="-100123456789" value={f.telegramChatId}
+                onChange={(e) => setField('telegramChatId', e.target.value)} />
             </div>
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
-              {testing ? 'Sending…' : 'Send Test Notification'}
+              {testing ? t('alerts.sending') : t('alerts.sendTest')}
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Create a bot via @BotFather, add it to your group/channel, get the Chat ID via @userinfobot.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('alerts.telegramHint')}</p>
           </CardContent>
         </Card>
 
-        {/* History */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Alert History ({history.length})</CardTitle>
+            <CardTitle>{t('alerts.historyCount')} ({history.length})</CardTitle>
             {history.length > 0 && (
               <Button variant="ghost" size="sm" onClick={handleClear} className="text-muted-foreground">
-                Clear
+                {t('alerts.clear')}
               </Button>
             )}
           </CardHeader>
           <CardContent>
             {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No alerts fired yet.</p>
+              <p className="text-sm text-muted-foreground">{t('alerts.noHistory')}</p>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {history.map((alert: any) => (
                   <div key={alert.id} className="flex items-start justify-between gap-3 text-sm py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <MetricBadge metric={alert.metric} />
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${METRIC_COLORS[alert.metric] ?? 'bg-muted text-muted-foreground'}`}>
+                        {alert.metric === 'offline' ? t('alerts.offline') : alert.metric.toUpperCase()}
+                      </span>
                       <span className="font-medium truncate">{alert.serverName}</span>
                       <span className="text-muted-foreground">
-                        {alert.metric !== 'offline' ? `${alert.value.toFixed(1)}% > ${alert.threshold}%` : 'offline'}
+                        {alert.metric !== 'offline' ? `${alert.value.toFixed(1)}% > ${alert.threshold}%` : ''}
                       </span>
                     </div>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(alert.firedAt)}</span>
@@ -308,19 +264,5 @@ export default function AlertsPage() {
         </Card>
       </div>
     </main>
-  )
-}
-
-function MetricBadge({ metric }: { metric: string }) {
-  const colors: Record<string, string> = {
-    cpu: 'bg-orange-900/40 text-orange-300',
-    ram: 'bg-blue-900/40 text-blue-300',
-    disk: 'bg-yellow-900/40 text-yellow-300',
-    offline: 'bg-red-900/40 text-red-300',
-  }
-  return (
-    <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${colors[metric] ?? 'bg-muted text-muted-foreground'}`}>
-      {METRIC_LABELS[metric] ?? metric}
-    </span>
   )
 }

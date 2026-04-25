@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { fetchServer, fetchMetrics, provisionServer, updateServer } from '@/lib/api'
+import { useT, LangToggle } from '@/lib/i18n'
 import { MetricsChart } from '@/components/metrics-chart'
 import { PluginRunner } from '@/components/plugin-runner'
 import { StatusIndicator } from '@/components/status-indicator'
@@ -18,6 +19,7 @@ interface Props {
 export default function ServerPage({ params }: Props) {
   const { name } = params
   const qc = useQueryClient()
+  const { t } = useT()
   const [provisioning, setProvisioning] = useState(false)
   const [provisionResult, setProvisionResult] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
@@ -44,10 +46,10 @@ export default function ServerPage({ params }: Props) {
       })
       qc.invalidateQueries({ queryKey: ['server', name] })
       qc.invalidateQueries({ queryKey: ['fleet'] })
-      setSaveResult('Saved')
+      setSaveResult(t('edit.saved'))
       setTimeout(() => setShowEdit(false), 800)
     } catch (e: any) {
-      setSaveResult(e?.message ?? 'Error')
+      setSaveResult(e?.message ?? t('common.error'))
     } finally {
       setSaving(false)
     }
@@ -83,81 +85,80 @@ export default function ServerPage({ params }: Props) {
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
-            ← Fleet
+            {t('server.back')}
           </Link>
           <h1 className="font-bold text-lg">{name}</h1>
           {metrics && (
             <StatusIndicator online={metrics.cpu !== undefined} size="md" />
           )}
         </div>
-        {server && (
-          <Button variant="outline" size="sm" onClick={() => openEdit(server)}>
-            Edit
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <LangToggle />
+          {server && (
+            <Button variant="outline" size="sm" onClick={() => openEdit(server)}>
+              {t('server.edit')}
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="p-6 max-w-screen-xl mx-auto space-y-6">
-        {/* Quick stats */}
         {metrics && metrics.cpu !== undefined && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="CPU" value={`${metrics.cpu.toFixed(1)}%`} />
-            <StatCard label="RAM" value={`${metrics.ram.toFixed(1)}%`} />
-            <StatCard label="Disk" value={`${metrics.disk.toFixed(1)}%`} />
-            <StatCard label="Uptime" value={formatUptime(metrics.uptime)} />
+            <StatCard label={t('server.cpu')} value={`${metrics.cpu.toFixed(1)}%`} />
+            <StatCard label={t('server.ram')} value={`${metrics.ram.toFixed(1)}%`} />
+            <StatCard label={t('server.disk')} value={`${metrics.disk.toFixed(1)}%`} />
+            <StatCard label={t('server.uptime')} value={formatUptime(metrics.uptime)} />
           </div>
         )}
 
         {metrics?.speedtestDown !== undefined && (
           <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Speedtest ↓" value={`${metrics.speedtestDown?.toFixed(1)} Mbps`} />
-            <StatCard label="Speedtest ↑" value={`${metrics.speedtestUp?.toFixed(1)} Mbps`} />
+            <StatCard label={t('server.speedDown')} value={`${metrics.speedtestDown?.toFixed(1)} Mbps`} />
+            <StatCard label={t('server.speedUp')} value={`${metrics.speedtestUp?.toFixed(1)} Mbps`} />
           </div>
         )}
 
-        {/* Charts */}
         <Card>
           <CardHeader>
-            <CardTitle>Metrics (last 30 min)</CardTitle>
+            <CardTitle>{t('server.metrics')}</CardTitle>
           </CardHeader>
           <CardContent>
             <MetricsChart serverName={name} />
           </CardContent>
         </Card>
 
-        {/* Plugins */}
         <Card>
           <CardHeader>
-            <CardTitle>Plugins</CardTitle>
+            <CardTitle>{t('server.plugins')}</CardTitle>
           </CardHeader>
           <CardContent>
             <PluginRunner serverName={name} />
           </CardContent>
         </Card>
 
-        {/* Quick actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
+            <CardTitle>{t('server.quickActions')}</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-3 flex-wrap items-center">
             <Link href={`/server/${name}/terminal`}>
-              <Button variant="outline">SSH Terminal</Button>
+              <Button variant="outline">{t('server.terminal')}</Button>
             </Link>
             <Link href={`/server/${name}/docker`}>
-              <Button variant="outline">Docker</Button>
+              <Button variant="outline">{t('server.docker')}</Button>
             </Link>
             <Link href={`/server/${name}/security`}>
-              <Button variant="outline">Security</Button>
+              <Button variant="outline">{t('server.security')}</Button>
             </Link>
             <Link href={`/server/${name}/remnawave`}>
-              <Button variant="outline">Remnawave</Button>
+              <Button variant="outline">{t('server.remnawave')}</Button>
             </Link>
             <Link href={`/wizard/node-setup?server=${name}`}>
-              <Button variant="outline">Setup Node</Button>
+              <Button variant="outline">{t('server.setupNode')}</Button>
             </Link>
             <Button variant="outline" onClick={handleProvision} disabled={provisioning}>
-              {provisioning ? 'Provisioning…' : 'Provision SSH Key'}
+              {provisioning ? t('server.provisioning') : t('server.provision')}
             </Button>
             {provisionResult && (
               <span className={`text-sm ${provisionResult.startsWith('Key') ? 'text-green-500' : 'text-red-500'}`}>
@@ -167,11 +168,10 @@ export default function ServerPage({ params }: Props) {
           </CardContent>
         </Card>
 
-        {/* Server info */}
         {server && (
           <Card>
             <CardHeader>
-              <CardTitle>Connection info</CardTitle>
+              <CardTitle>{t('server.connectionInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm font-mono space-y-1 text-muted-foreground">
               <p>IP: {server.ip}</p>
@@ -186,10 +186,10 @@ export default function ServerPage({ params }: Props) {
       {showEdit && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowEdit(false)}>
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-bold text-lg mb-4">Edit {name}</h2>
+            <h2 className="font-bold text-lg mb-4">{t('edit.title')} {name}</h2>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground">IP Address</label>
+                <label className="text-xs text-muted-foreground">{t('edit.ip')}</label>
                 <Input
                   value={editForm.ip}
                   onChange={(e) => setEditForm(f => ({ ...f, ip: e.target.value }))}
@@ -198,14 +198,14 @@ export default function ServerPage({ params }: Props) {
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-muted-foreground">User</label>
+                  <label className="text-xs text-muted-foreground">{t('edit.user')}</label>
                   <Input
                     value={editForm.user}
                     onChange={(e) => setEditForm(f => ({ ...f, user: e.target.value }))}
                   />
                 </div>
                 <div className="w-24">
-                  <label className="text-xs text-muted-foreground">Port</label>
+                  <label className="text-xs text-muted-foreground">{t('edit.port')}</label>
                   <Input
                     value={editForm.port}
                     onChange={(e) => setEditForm(f => ({ ...f, port: e.target.value }))}
@@ -213,23 +213,23 @@ export default function ServerPage({ params }: Props) {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Password (для provision)</label>
+                <label className="text-xs text-muted-foreground">{t('edit.password')}</label>
                 <Input
                   type="password"
-                  placeholder="оставь пустым чтобы не менять"
+                  placeholder={t('edit.passwordHint')}
                   value={editForm.sudoPass}
                   onChange={(e) => setEditForm(f => ({ ...f, sudoPass: e.target.value }))}
                   autoComplete="new-password"
                 />
               </div>
               {saveResult && (
-                <p className={`text-sm ${saveResult === 'Saved' ? 'text-green-500' : 'text-red-500'}`}>{saveResult}</p>
+                <p className={`text-sm ${saveResult === t('edit.saved') ? 'text-green-500' : 'text-red-500'}`}>{saveResult}</p>
               )}
               <div className="flex gap-2 pt-1">
                 <Button type="submit" disabled={saving} className="flex-1">
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving ? t('edit.saving') : t('edit.save')}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>{t('edit.cancel')}</Button>
               </div>
             </form>
           </div>

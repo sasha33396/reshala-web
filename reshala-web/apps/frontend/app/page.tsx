@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fetchFleet, fetchFleetStatus, logout, addServerByPassword } from '@/lib/api'
+import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/input'
 export default function HomePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { t } = useT()
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ name: '', ip: '', password: '', user: 'root', port: '22' })
@@ -30,15 +32,15 @@ export default function HomePage() {
         port: parseInt(addForm.port) || 22,
       })
       if (res.ok) {
-        setAddResult('Server added successfully')
+        setAddResult(t('add.success'))
         setAddForm({ name: '', ip: '', password: '', user: 'root', port: '22' })
         queryClient.invalidateQueries({ queryKey: ['fleet'] })
         setTimeout(() => { setShowAdd(false); setAddResult(null) }, 1500)
       } else {
-        setAddResult(res.error ?? 'Failed')
+        setAddResult(res.error ?? t('common.error'))
       }
     } catch (e: any) {
-      setAddResult(e?.message ?? 'Error')
+      setAddResult(e?.message ?? t('common.error'))
     } finally {
       setAdding(false)
     }
@@ -82,38 +84,39 @@ export default function HomePage() {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold">Reshala Web</h1>
+          <h1 className="text-lg font-bold">{t('fleet.title')}</h1>
           {!isLoading && (
             <span className="text-xs text-muted-foreground">
-              {totalOnline}/{totalServers} online
+              {totalOnline}/{totalServers} {t('fleet.online')}
             </span>
           )}
         </div>
         <div className="flex items-center gap-3">
           <Input
             type="search"
-            placeholder="Search servers…"
+            placeholder={t('fleet.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"
           />
           <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }}>
-            + Add Server
+            {t('fleet.addServer')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/analytics')}>
-            Analytics
+            {t('nav.analytics')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/alerts')}>
-            Alerts
+            {t('nav.alerts')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/bulk')}>
-            Bulk Ops
+            {t('nav.bulkOps')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
-            Import
+            {t('nav.import')}
           </Button>
+          <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout}>
-            Logout
+            {t('nav.logout')}
           </Button>
         </div>
       </header>
@@ -133,38 +136,38 @@ export default function HomePage() {
       {showAdd && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowAdd(false)}>
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-bold text-lg mb-4">Add Server</h2>
+            <h2 className="font-bold text-lg mb-4">{t('add.title')}</h2>
             <form onSubmit={handleAdd} className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground">Name</label>
+                <label className="text-xs text-muted-foreground">{t('add.name')}</label>
                 <Input placeholder="de-0-myserver" value={addForm.name} onChange={(e) => setAddForm(f => ({ ...f, name: e.target.value }))} required />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">IP</label>
+                <label className="text-xs text-muted-foreground">{t('add.ip')}</label>
                 <Input placeholder="1.2.3.4" value={addForm.ip} onChange={(e) => setAddForm(f => ({ ...f, ip: e.target.value }))} required />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-muted-foreground">User</label>
+                  <label className="text-xs text-muted-foreground">{t('add.user')}</label>
                   <Input value={addForm.user} onChange={(e) => setAddForm(f => ({ ...f, user: e.target.value }))} />
                 </div>
                 <div className="w-20">
-                  <label className="text-xs text-muted-foreground">Port</label>
+                  <label className="text-xs text-muted-foreground">{t('add.port')}</label>
                   <Input value={addForm.port} onChange={(e) => setAddForm(f => ({ ...f, port: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Root Password</label>
+                <label className="text-xs text-muted-foreground">{t('add.password')}</label>
                 <Input type="password" placeholder="password" value={addForm.password} onChange={(e) => setAddForm(f => ({ ...f, password: e.target.value }))} required />
               </div>
               {addResult && (
-                <p className={`text-sm ${addResult.includes('successfully') ? 'text-green-500' : 'text-red-500'}`}>{addResult}</p>
+                <p className={`text-sm ${addResult === t('add.success') ? 'text-green-500' : 'text-red-500'}`}>{addResult}</p>
               )}
               <div className="flex gap-2 pt-1">
                 <Button type="submit" disabled={adding} className="flex-1">
-                  {adding ? 'Adding…' : 'Add & Deploy Key'}
+                  {adding ? t('add.submitting') : t('add.submit')}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>{t('add.cancel')}</Button>
               </div>
             </form>
           </div>
