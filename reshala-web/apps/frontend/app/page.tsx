@@ -9,6 +9,15 @@ import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+type ProvisionProgress = {
+  running: boolean
+  total: number
+  done: number
+  ok: number
+  failed: number
+  errors: string[]
+}
+
 export default function HomePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -19,9 +28,39 @@ export default function HomePage() {
   const [adding, setAdding] = useState(false)
   const [addResult, setAddResult] = useState<string | null>(null)
   const [provisioning, setProvisioning] = useState(false)
-  const [provisionResult, setProvisionResult] = useState<{ total: number; ok: number; failed: number } | null>(null)
-  const [progress, setProgress] = useState<{ total: number; done: number; ok: number; failed: number } | null>(null)
+  const [progress, setProgress] = useState<ProvisionProgress | null>(null)
+  const [provisionResult, setProvisionResult] = useState<ProvisionProgress | null>(null)
+  const [showErrors, setShowErrors] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function startPolling() {
+    if (pollRef.current) return
+    pollRef.current = setInterval(async () => {
+      try {
+        const p = await fetchProvisionProgress()
+        setProgress(p)
+        if (!p.running && p.total > 0) {
+          clearInterval(pollRef.current!)
+          pollRef.current = null
+          setProvisioning(false)
+          setProvisionResult(p)
+          setProgress(null)
+        }
+      } catch {}
+    }, 600)
+  }
+
+  // Resume bar if backend is still running after page refresh
+  useEffect(() => {
+    fetchProvisionProgress().then((p) => {
+      if (p.running) {
+        setProvisioning(true)
+        setProgress(p)
+        startPolling()
+      }
+    }).catch(() => {})
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -82,19 +121,11 @@ export default function HomePage() {
     setProvisioning(true)
     setProvisionResult(null)
     setProgress(null)
-    pollRef.current = setInterval(async () => {
-      try {
-        const p = await fetchProvisionProgress()
-        setProgress({ total: p.total, done: p.done, ok: p.ok, failed: p.failed })
-        if (!p.running && p.total > 0) {
-          clearInterval(pollRef.current!)
-          pollRef.current = null
-        }
-      } catch {}
-    }, 600)
+    startPolling()
     try {
       const res = await provisionAll()
-      setProvisionResult(res)
+      // result comes from POST response; polling may have already set provisionResult
+      setProvisionResult({ ...res, running: false, done: res.total, errors: res.errors })
     } finally {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       setProvisioning(false)
@@ -107,6 +138,10 @@ export default function HomePage() {
     router.push('/login')
     router.refresh()
   }
+
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.done / progress.total) * 100)
+    : 0
 
   return (
     <main className="min-h-screen bg-background">
@@ -142,30 +177,15 @@ export default function HomePage() {
           <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
             {t('nav.import')}
           </Button>
-          <div className="flex flex-col gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleProvisionAll}
-              disabled={provisioning}
-              title="Deploy SSH keys to all servers using stored passwords"
-            >
-              {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
-            </Button>
-            {provisioning && progress && progress.total > 0 && (
-              <div className="w-36">
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-                  {progress.done}/{progress.total} • ✓{progress.ok} ✗{progress.failed}
-                </p>
-              </div>
-            )}
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleProvisionAll}
+            disabled={provisioning}
+            title="Deploy SSH keys to all servers using stored passwords"
+          >
+            {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
+          </Button>
           <LangToggle />
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             {t('nav.logout')}
@@ -185,16 +205,94 @@ export default function HomePage() {
         )}
       </div>
 
-      {provisionResult && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setProvisionResult(null)}>
-          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm mx-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-bold text-lg">Provision All — Done</h2>
-            <p className="text-sm text-muted-foreground">Total servers: {provisionResult.total}</p>
-            <p className="text-sm text-green-400">✓ Keys deployed: {provisionResult.ok}</p>
-            {provisionResult.failed > 0 && (
-              <p className="text-sm text-yellow-400">⚠ Failed: {provisionResult.failed} (no password or unreachable)</p>
+      {/* Provision progress overlay */}
+      {provisioning && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-xl p-8 w-full max-w-md mx-4 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔑</span>
+              <div>
+                <h2 className="font-bold text-lg">Provision All</h2>
+                <p className="text-xs text-muted-foreground">Deploying SSH keys to all servers…</p>
+              </div>
+            </div>
+
+            {progress && progress.total > 0 ? (
+              <>
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                    <span>{progress.done} / {progress.total} servers</span>
+                    <span className="font-mono font-bold">{pct}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4 text-sm">
+                  <span className="text-green-400 font-mono">✓ {progress.ok} ok</span>
+                  <span className="text-red-400 font-mono">✗ {progress.failed} failed</span>
+                </div>
+                {progress.errors.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-lg bg-muted/50 p-3 space-y-1">
+                    {progress.errors.slice(-10).map((e, i) => (
+                      <p key={i} className="text-xs text-red-400 font-mono break-all">{e}</p>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary/40 rounded-full animate-pulse w-full" />
+              </div>
             )}
-            <Button onClick={() => setProvisionResult(null)} className="w-full">Close</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Provision done modal */}
+      {provisionResult && !provisioning && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setProvisionResult(null); setShowErrors(false) }}>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md mx-4 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-bold text-lg">🔑 Provision All — Done</h2>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-2xl font-bold">{provisionResult.total}</p>
+                <p className="text-xs text-muted-foreground mt-1">Total</p>
+              </div>
+              <div className="rounded-lg bg-green-950/50 border border-green-800/40 p-3">
+                <p className="text-2xl font-bold text-green-400">{provisionResult.ok}</p>
+                <p className="text-xs text-muted-foreground mt-1">OK</p>
+              </div>
+              <div className="rounded-lg bg-red-950/50 border border-red-800/40 p-3">
+                <p className="text-2xl font-bold text-red-400">{provisionResult.failed}</p>
+                <p className="text-xs text-muted-foreground mt-1">Failed</p>
+              </div>
+            </div>
+
+            {provisionResult.errors.length > 0 && (
+              <div>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                  onClick={() => setShowErrors(!showErrors)}
+                >
+                  {showErrors ? 'Hide errors' : `Show ${provisionResult.errors.length} errors`}
+                </button>
+                {showErrors && (
+                  <div className="mt-2 max-h-48 overflow-y-auto rounded-lg bg-muted/50 p-3 space-y-1">
+                    {provisionResult.errors.map((e, i) => (
+                      <p key={i} className="text-xs text-red-400 font-mono break-all">{e}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button onClick={() => { setProvisionResult(null); setShowErrors(false) }} className="w-full">
+              Close
+            </Button>
           </div>
         </div>
       )}
