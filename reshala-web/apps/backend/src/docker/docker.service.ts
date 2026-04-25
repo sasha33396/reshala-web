@@ -3,27 +3,17 @@ import { Observable } from 'rxjs'
 import { Client } from 'ssh2'
 import * as fs from 'fs'
 import type { Server, DockerContainer, PluginOutputLine } from '@reshala-web/shared'
+import { connectSsh } from '../common/ssh.utils'
 
 @Injectable()
 export class DockerService {
   private readonly logger = new Logger(DockerService.name)
 
-  private connectConfig(server: Server) {
-    return {
-      host: server.ip,
-      port: server.port,
-      username: server.user,
-      privateKey: fs.readFileSync(server.keyPath),
-      readyTimeout: 8000,
-      hostVerifier: () => true,
-    }
-  }
-
   private exec(server: Server, cmd: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new Client()
       let out = ''
-      const t = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 12000)
+      const t = setTimeout(() => { conn.destroy(); reject(new Error('SSH timeout')) }, 20000)
 
       conn.on('ready', () => {
         conn.exec(cmd, (err, stream) => {
@@ -34,7 +24,7 @@ export class DockerService {
         })
       })
       conn.on('error', (e) => { clearTimeout(t); reject(e) })
-      conn.connect(this.connectConfig(server))
+      connectSsh(conn, server).catch((e) => { clearTimeout(t); reject(e) })
     })
   }
 
@@ -91,7 +81,7 @@ export class DockerService {
         })
       })
       conn.on('error', (e) => { clearTimeout(t); observer.error(e) })
-      conn.connect(this.connectConfig(server))
+      connectSsh(conn, server).catch((e) => { clearTimeout(t); observer.error(e) })
       return () => conn.end()
     })
   }

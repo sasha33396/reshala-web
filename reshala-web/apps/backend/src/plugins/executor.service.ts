@@ -3,6 +3,7 @@ import { Observable } from 'rxjs'
 import { Client, SFTPWrapper } from 'ssh2'
 import * as fs from 'fs'
 import type { Server, PluginOutputLine } from '@reshala-web/shared'
+import { connectSsh, sshConnectConfig } from '../common/ssh.utils'
 
 function buildEnvPrefix(envVars: Record<string, string>): string {
   return Object.entries(envVars)
@@ -12,17 +13,6 @@ function buildEnvPrefix(envVars: Record<string, string>): string {
 
 function shellEscape(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
-}
-
-function sshConnectConfig(server: Server) {
-  return {
-    host: server.ip,
-    port: server.port,
-    username: server.user,
-    privateKey: fs.readFileSync(server.keyPath),
-    readyTimeout: 5000,
-    hostVerifier: () => true,
-  }
 }
 
 @Injectable()
@@ -93,9 +83,10 @@ export class ExecutorService {
         })
       })
 
-      conn.connect(sshConnectConfig(server))
+      ;(async () => {
+        try { await connectSsh(conn, server) } catch (err: any) { observer.error(err) }
+      })()
 
-      // teardown: called if the Observable is unsubscribed before completion
       return () => conn.end()
     })
   }
@@ -119,12 +110,7 @@ export class ExecutorService {
         resolve(false)
       })
 
-      try {
-        conn.connect(sshConnectConfig(server))
-      } catch {
-        clearTimeout(timer)
-        resolve(false)
-      }
+      connectSsh(conn, server).catch(() => { clearTimeout(timer); resolve(false) })
     })
   }
 }

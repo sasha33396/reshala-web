@@ -32,6 +32,12 @@ export class MetricsController {
     return this.metricsService.getFleetStatus(servers.map((s) => ({ ip: s.ip, port: s.port })))
   }
 
+  @Get('fleet/analytics')
+  async fleetAnalytics() {
+    const servers = this.fleetService.getAll()
+    return this.metricsService.getFleetAnalytics(servers)
+  }
+
   @Get(':name')
   async serverMetrics(@Param('name') name: string) {
     const server = this.fleetService.getByName(name)

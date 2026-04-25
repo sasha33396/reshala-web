@@ -71,3 +71,18 @@ export const dockerPrune = (name: string, type: 'images' | 'system') =>
   req<string>(`/docker/${name}/prune/${type}`, { method: 'POST' })
 export const updateRemnanode = (name: string) =>
   req<{ ok: boolean; output: string }>(`/docker/${name}/remnanode/update`, { method: 'POST' })
+
+// Analytics
+export const fetchFleetAnalytics = () => req<any>('/metrics/fleet/analytics')
+
+// Alerts
+export const fetchAlertsConfig = () => req<any>('/alerts/config')
+export const saveAlertsConfig = (config: any) =>
+  req<{ ok: boolean }>('/alerts/config', { method: 'PUT', body: JSON.stringify(config) })
+export const sendTestAlert = () =>
+  req<{ ok: boolean; error?: string }>('/alerts/test', { method: 'POST', body: '{}' })
+export const runAlertCheck = () =>
+  req<{ checked: number; fired: number; errors: string[] }>('/alerts/check', { method: 'POST', body: '{}' })
+export const fetchAlertHistory = () => req<any[]>('/alerts/history')
+export const clearAlertHistory = () =>
+  req<{ ok: boolean }>('/alerts/history', { method: 'DELETE' })

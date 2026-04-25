@@ -47,6 +47,10 @@ services:
       - PLUGINS_DIR=/app/plugins
       - BACKEND_PORT=3001
       - PROMETHEUS_URL=http://prometheus:9090
+      - SOCKS5_HOST=${SOCKS5_HOST:-}
+      - SOCKS5_PORT=${SOCKS5_PORT:-1080}
+      - SOCKS5_USER=${SOCKS5_USER:-}
+      - SOCKS5_PASS=${SOCKS5_PASS:-}
     expose:
       - "3001"
 

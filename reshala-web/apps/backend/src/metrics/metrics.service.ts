@@ -1,7 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
 import * as net from 'net'
-import type { MetricData } from '@reshala-web/shared'
+import type { MetricData, Server } from '@reshala-web/shared'
+
+export interface ServerMetricSnapshot {
+  name: string
+  ip: string
+  country: string
+  cpu: number
+  ram: number
+  disk: number
+}
+
+export interface FleetAnalytics {
+  timestamp: string
+  totalServers: number
+  topCpu: ServerMetricSnapshot[]
+  topRam: ServerMetricSnapshot[]
+  topDisk: ServerMetricSnapshot[]
+  avgCpu: number
+  avgRam: number
+  avgDisk: number
+  criticalCpu: number
+  criticalRam: number
+  criticalDisk: number
+}
 
 interface PromResult {
   metric: Record<string, string>
@@ -163,6 +186,61 @@ export class MetricsService {
       socket.once('timeout', () => done(false))
       socket.connect(port, ip)
     })
+  }
+
+  async getFleetAnalytics(servers: Server[]): Promise<FleetAnalytics> {
+    if (servers.length === 0) {
+      return {
+        timestamp: new Date().toISOString(),
+        totalServers: 0,
+        topCpu: [], topRam: [], topDisk: [],
+        avgCpu: 0, avgRam: 0, avgDisk: 0,
+        criticalCpu: 0, criticalRam: 0, criticalDisk: 0,
+      }
+    }
+
+    // Bulk Prometheus queries — one pass for all servers
+    const [cpuResults, ramResults, diskResults] = await Promise.all([
+      this.query(`100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100`),
+      this.query(`(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`),
+      this.query(`(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100`),
+    ])
+
+    // Build lookup: IP → server
+    const byIp = new Map(servers.map((s) => [s.ip, s]))
+
+    // Extract IP from Prometheus instance label (format: "1.2.3.4:9100")
+    const extractIp = (instance: string) => instance.split(':')[0]
+
+    const cpuByIp = new Map(cpuResults.map((r) => [extractIp(r.metric.instance ?? ''), parseFloat(r.value[1]) || 0]))
+    const ramByIp = new Map(ramResults.map((r) => [extractIp(r.metric.instance ?? ''), parseFloat(r.value[1]) || 0]))
+    const diskByIp = new Map(diskResults.map((r) => [extractIp(r.metric.instance ?? ''), parseFloat(r.value[1]) || 0]))
+
+    const snapshots: ServerMetricSnapshot[] = servers.map((s) => ({
+      name: s.name,
+      ip: s.ip,
+      country: s.country ?? '',
+      cpu: cpuByIp.get(s.ip) ?? 0,
+      ram: ramByIp.get(s.ip) ?? 0,
+      disk: diskByIp.get(s.ip) ?? 0,
+    }))
+
+    const n = snapshots.length
+    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length
+
+    return {
+      timestamp: new Date().toISOString(),
+      totalServers: n,
+      topCpu: [...snapshots].sort((a, b) => b.cpu - a.cpu).slice(0, 15),
+      topRam: [...snapshots].sort((a, b) => b.ram - a.ram).slice(0, 15),
+      topDisk: [...snapshots].sort((a, b) => b.disk - a.disk).slice(0, 15),
+      avgCpu: avg(snapshots.map((s) => s.cpu)),
+      avgRam: avg(snapshots.map((s) => s.ram)),
+      avgDisk: avg(snapshots.map((s) => s.disk)),
+      criticalCpu: snapshots.filter((s) => s.cpu >= 90).length,
+      criticalRam: snapshots.filter((s) => s.ram >= 90).length,
+      criticalDisk: snapshots.filter((s) => s.disk >= 90).length,
+    }
   }
 
   async getFleetStatus(servers: { ip: string; port?: number }[]): Promise<Record<string, boolean>> {

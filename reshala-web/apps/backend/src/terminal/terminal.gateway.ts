@@ -9,7 +9,7 @@ import { Socket } from 'socket.io'
 import { Client } from 'ssh2'
 import { FleetService } from '../fleet/fleet.service'
 import { AuthService } from '../auth/auth.service'
-import { sshConnectConfig } from '../common/ssh.utils'
+import { connectSsh } from '../common/ssh.utils'
 
 @WebSocketGateway({ namespace: '/terminal', cors: { origin: true, credentials: true } })
 export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -86,12 +86,10 @@ export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.connections.delete(client.id)
     })
 
-    try {
-      conn.connect(sshConnectConfig(server))
-    } catch (err: any) {
+    connectSsh(conn, server).catch((err: any) => {
       client.emit('error', err.message)
       this.connections.delete(client.id)
-    }
+    })
   }
 
   private extractToken(client: Socket): string | null {
