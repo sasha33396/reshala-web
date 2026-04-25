@@ -141,10 +141,19 @@ export class FleetService {
     authConfig: Record<string, unknown>,
     pubKey: string,
   ): Promise<void> {
-    const sock = await createProxiedSocket(host, port).catch(() => null)
+    const socksHost = process.env.SOCKS5_HOST
+    let sock: any = null
+    if (socksHost) {
+      try {
+        sock = await createProxiedSocket(host, port)
+        this.logger.debug(`sshExecAndAuthorize: SOCKS5 socket OK → ${host}:${port}`)
+      } catch (e: any) {
+        throw new Error(`SOCKS5 proxy cannot reach ${host}:${port} — ${e?.message ?? 'unknown'}`)
+      }
+    }
     const connectConfig: Record<string, unknown> = sock
-      ? { sock, username: authConfig.username, hostVerifier: () => true, readyTimeout: 15000, ...authConfig }
-      : { host, port, username: authConfig.username, hostVerifier: () => true, readyTimeout: 12000, ...authConfig }
+      ? { sock, hostVerifier: () => true, readyTimeout: 15000, ...authConfig }
+      : { host, port, hostVerifier: () => true, readyTimeout: 12000, ...authConfig }
     delete connectConfig.host_placeholder
 
     return new Promise((resolve, reject) => {
@@ -172,20 +181,27 @@ export class FleetService {
 
     const base = { username: server.user }
 
-    // Try existing system keys first
-    const candidateKeys = ['id_ed25519', 'id_rsa', 'id_ecdsa'].map(k => path.join(this.sshKeysDir, k))
+    // Candidate keys: server's own reshala key first (already deployed → works even if password auth disabled),
+    // then generic system keys in the container's ~/.ssh/
+    const candidateKeys = [
+      server.keyPath,
+      ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map(k => path.join(this.sshKeysDir, k)),
+    ]
     for (const keyFile of candidateKeys) {
       if (!fs.existsSync(keyFile)) continue
+      this.logger.debug(`deployPublicKey ${server.name}: trying key ${path.basename(keyFile)}`)
       try {
         await this.sshExecAndAuthorize(server.ip, server.port, { ...base, privateKey: fs.readFileSync(keyFile) }, pubKey)
+        this.logger.log(`deployPublicKey ${server.name}: OK via ${path.basename(keyFile)}`)
         return
-      } catch {
-        // try next
+      } catch (e: any) {
+        this.logger.debug(`deployPublicKey ${server.name}: key ${path.basename(keyFile)} failed — ${e?.message}`)
       }
     }
 
     // Fall back to password auth
     if (!server.sudoPass) throw new Error('No existing key worked and no password set')
+    this.logger.debug(`deployPublicKey ${server.name}: trying password auth`)
     await this.sshExecAndAuthorize(server.ip, server.port, { ...base, password: server.sudoPass }, pubKey)
   }
 
