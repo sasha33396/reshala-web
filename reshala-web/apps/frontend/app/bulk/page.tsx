@@ -474,7 +474,7 @@ function PluginServerCard({ name, state, expanded, onToggle }: { name: string; s
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BulkPage() {
-  const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: fetchFleet })
+  const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: () => fetchFleet() })
   const { data: plugins = [] } = useQuery({ queryKey: ['plugins'], queryFn: fetchPlugins })
   const [tab, setTab] = useState<Tab>('ufw')
   const allServers = groups.flatMap((g: any) => g.servers)

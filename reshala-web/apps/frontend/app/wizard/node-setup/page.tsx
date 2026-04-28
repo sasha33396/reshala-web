@@ -55,7 +55,7 @@ function NodeSetupWizard() {
   const outputRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef<ReturnType<typeof createPluginsSocket> | null>(null)
 
-  const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: fetchFleet })
+  const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: () => fetchFleet() })
   const allServers = groups.flatMap((g: any) => g.servers)
   const certSources = allServers.filter((s: any) => s.name !== form.serverName)
 
