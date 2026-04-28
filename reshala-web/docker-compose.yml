@@ -51,6 +51,8 @@ services:
       - SOCKS5_PORT=${SOCKS5_PORT:-1080}
       - SOCKS5_USER=${SOCKS5_USER:-}
       - SOCKS5_PASS=${SOCKS5_PASS:-}
+      - REMNAWAVE_URL=${REMNAWAVE_URL:-}
+      - REMNAWAVE_API_KEY=${REMNAWAVE_API_KEY:-}
     expose:
       - "3001"
 

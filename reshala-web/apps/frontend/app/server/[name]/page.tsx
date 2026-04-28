@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { fetchServer, fetchMetrics, provisionServer, updateServer } from '@/lib/api'
+import { fetchServer, fetchMetrics, provisionServer, updateServer, fetchPanelNodes } from '@/lib/api'
+import type { PanelNode } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { MetricsChart } from '@/components/metrics-chart'
 import { PluginRunner } from '@/components/plugin-runner'
@@ -80,6 +81,17 @@ export default function ServerPage({ params }: Props) {
     enabled: !!server,
   })
 
+  const { data: panelNodes = [] } = useQuery({
+    queryKey: ['panel-nodes'],
+    queryFn: fetchPanelNodes,
+    refetchInterval: 60_000,
+    retry: false,
+    staleTime: 30_000,
+  })
+  const panelNode: PanelNode | undefined = server
+    ? panelNodes.find((n: PanelNode) => n.address === server.ip)
+    : undefined
+
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
@@ -127,6 +139,32 @@ export default function ServerPage({ params }: Props) {
             <MetricsChart serverName={name} />
           </CardContent>
         </Card>
+
+        {panelNode && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Remnawave Panel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard
+                  label="Status"
+                  value={panelNode.isDisabled ? 'Disabled' : panelNode.isConnected ? 'Connected' : panelNode.isConnecting ? 'Connecting…' : 'Disconnected'}
+                />
+                <StatCard label="Users online" value={String(panelNode.usersOnline)} />
+                {panelNode.trafficUsedBytes !== null && (
+                  <StatCard label="Traffic used" value={formatBytes(panelNode.trafficUsedBytes)} />
+                )}
+                {panelNode.trafficLimitBytes !== null && (
+                  <StatCard label="Traffic limit" value={formatBytes(panelNode.trafficLimitBytes)} />
+                )}
+              </div>
+              {panelNode.lastStatusMessage && !panelNode.isConnected && (
+                <p className="mt-3 text-xs text-destructive font-mono break-all">{panelNode.lastStatusMessage}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -246,6 +284,13 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <p className="text-xl font-bold mt-1">{value}</p>
     </div>
   )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(2)} TB`
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`
+  return `${(bytes / 1e3).toFixed(0)} KB`
 }
 
 function formatUptime(s: number): string {

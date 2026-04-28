@@ -6,8 +6,9 @@ import { MetricsModule } from './metrics/metrics.module'
 import { AuthModule } from './auth/auth.module'
 import { DockerModule } from './docker/docker.module'
 import { AlertsModule } from './alerts/alerts.module'
+import { RemnawaveModule } from './remnawave/remnawave.module'
 
 @Module({
-  imports: [AuthModule, FleetModule, PluginsModule, TerminalModule, MetricsModule, DockerModule, AlertsModule],
+  imports: [AuthModule, FleetModule, PluginsModule, TerminalModule, MetricsModule, DockerModule, AlertsModule, RemnawaveModule],
 })
 export class AppModule {}

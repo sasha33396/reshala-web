@@ -1,12 +1,13 @@
-import type { FleetGroup } from '@reshala-web/shared'
+import type { FleetGroup, PanelNode } from '@reshala-web/shared'
 import { ServerCard } from './server-card'
 
 interface Props {
   groups: FleetGroup[]
   statusMap: Record<string, boolean>
+  panelMap?: Record<string, PanelNode>
 }
 
-export function FleetGrid({ groups, statusMap }: Props) {
+export function FleetGrid({ groups, statusMap, panelMap }: Props) {
   if (groups.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground">
@@ -26,6 +27,7 @@ export function FleetGrid({ groups, statusMap }: Props) {
                 key={server.name}
                 server={server}
                 online={statusMap[server.ip] ?? null}
+                panelNode={panelMap ? (panelMap[server.ip] ?? null) : undefined}
               />
             ))}
           </div>

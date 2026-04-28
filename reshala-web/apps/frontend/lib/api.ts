@@ -76,7 +76,7 @@ export const fetchMetricsHistory = (name: string, minutes = 30) =>
 export const fetchFleetStatus = () => req<Record<string, boolean>>('/metrics/fleet/status')
 
 // Docker
-import type { DockerContainer } from '@reshala-web/shared'
+import type { DockerContainer, PanelNode } from '@reshala-web/shared'
 export const fetchDockerContainers = (name: string) => req<DockerContainer[]>(`/docker/${name}/containers`)
 export const dockerControl = (name: string, id: string, action: 'start' | 'stop' | 'restart') =>
   req<string>(`/docker/${name}/containers/${id}/${action}`, { method: 'POST' })
@@ -84,6 +84,10 @@ export const dockerPrune = (name: string, type: 'images' | 'system') =>
   req<string>(`/docker/${name}/prune/${type}`, { method: 'POST' })
 export const updateRemnanode = (name: string) =>
   req<{ ok: boolean; output: string }>(`/docker/${name}/remnanode/update`, { method: 'POST' })
+
+// Remnawave Panel
+export const fetchPanelNodes = () => req<PanelNode[]>('/remnawave/nodes')
+export const fetchPanelStatus = () => req<{ configured: boolean }>('/remnawave/status')
 
 // Analytics
 export const fetchFleetAnalytics = () => req<any>('/metrics/fleet/analytics')

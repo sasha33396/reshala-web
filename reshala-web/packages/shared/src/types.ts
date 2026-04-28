@@ -47,6 +47,21 @@ export interface FleetGroup {
   servers: Server[]
 }
 
+export interface PanelNode {
+  uuid: string
+  name: string
+  address: string
+  port: number | null
+  isConnected: boolean
+  isDisabled: boolean
+  isConnecting: boolean
+  usersOnline: number
+  trafficUsedBytes: number | null
+  trafficLimitBytes: number | null
+  lastStatusMessage: string | null
+  countryCode: string
+}
+
 export interface DockerContainer {
   id: string
   name: string

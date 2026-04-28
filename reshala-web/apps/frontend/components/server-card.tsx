@@ -2,16 +2,17 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import type { Server } from '@reshala-web/shared'
+import type { Server, PanelNode } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
 
 interface Props {
   server: Server
   online: boolean | null
+  panelNode?: PanelNode | null
 }
 
-export function ServerCard({ server, online }: Props) {
+export function ServerCard({ server, online, panelNode }: Props) {
   const { data: metrics } = useQuery({
     queryKey: ['metrics', server.name],
     queryFn: () => fetchMetrics(server.name),
@@ -25,7 +26,12 @@ export function ServerCard({ server, online }: Props) {
       <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/60 transition-colors cursor-pointer h-full">
         <div className="flex items-center justify-between mb-1">
           <span className="font-medium text-sm truncate pr-2">{server.name}</span>
-          <StatusIndicator online={online} />
+          <div className="flex items-center gap-1.5">
+            {panelNode !== undefined && (
+              <PanelBadge node={panelNode ?? null} />
+            )}
+            <StatusIndicator online={online} />
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mb-3 font-mono">{server.ip}</p>
 
@@ -64,6 +70,21 @@ function MiniBar({ label, value }: { label: string; value: number }) {
       </div>
       <span className="text-xs w-9 text-right tabular-nums">{pct.toFixed(0)}%</span>
     </div>
+  )
+}
+
+function PanelBadge({ node }: { node: PanelNode | null }) {
+  if (!node) return null
+  if (node.isDisabled) return (
+    <span className="text-[10px] px-1 rounded bg-muted text-muted-foreground">disabled</span>
+  )
+  if (!node.isConnected) return (
+    <span className="text-[10px] px-1 rounded bg-destructive/20 text-destructive">panel ✗</span>
+  )
+  return (
+    <span className="text-[10px] px-1 rounded bg-green-500/20 text-green-400 tabular-nums">
+      👤{node.usersOnline}
+    </span>
   )
 }
 
