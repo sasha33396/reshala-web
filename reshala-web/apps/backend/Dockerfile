@@ -24,7 +24,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/package.json ./
-COPY --from=builder /app/apps/backend/plugins /opt/reshala/plugins/skynet_commands
+COPY --from=builder /app/apps/backend/plugins /app/plugins/skynet_commands
 
 EXPOSE 3001
 CMD ["node", "dist/main"]
