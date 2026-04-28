@@ -28,7 +28,7 @@ export class RemnawaveService {
         this.logger.warn(`Panel API returned ${res.status}`)
         return []
       }
-      const data = await res.json()
+      const data: any = await res.json()
       const nodes: any[] = data?.response ?? data ?? []
       return nodes.map((n: any): PanelNode => ({
         uuid: n.uuid,
