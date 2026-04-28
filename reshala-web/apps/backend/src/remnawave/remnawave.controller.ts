@@ -16,4 +16,9 @@ export class RemnawaveController {
   getStatus() {
     return { configured: this.svc.isConfigured }
   }
+
+  @Get('debug')
+  getRawNodes() {
+    return this.svc.getRawNodes()
+  }
 }
