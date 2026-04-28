@@ -97,7 +97,7 @@ function NodeSetupWizard() {
         envVars.CERT_CRT_B64 = cert.crt
         envVars.CERT_KEY_B64 = cert.key
         if (cert.json) envVars.CERT_JSON_B64 = cert.json
-        setOutput((p) => [...p, { type: 'stdout', data: `[INFO] Certificate fetched OK (crt=${cert.crt.length} chars).` }])
+        setOutput((p) => [...p, { type: 'stdout', data: `[INFO] Certificate fetched OK (crt=${cert.crt!.length} chars).` }])
       } catch (e: any) {
         setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Failed to fetch cert: ${e?.message}` }])
         setRunning(false)
