@@ -77,7 +77,7 @@ export const fetchMetricsHistory = (name: string, minutes = 30) =>
 export const fetchFleetStatus = () => req<Record<string, boolean>>('/metrics/fleet/status')
 
 // Docker
-import type { DockerContainer, PanelNode } from '@reshala-web/shared'
+import type { DockerContainer } from '@reshala-web/shared'
 export const fetchDockerContainers = (name: string) => req<DockerContainer[]>(`/docker/${name}/containers`)
 export const dockerControl = (name: string, id: string, action: 'start' | 'stop' | 'restart') =>
   req<string>(`/docker/${name}/containers/${id}/${action}`, { method: 'POST' })
