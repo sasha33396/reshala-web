@@ -27,6 +27,8 @@ err()  { echo "[ERROR] $(date '+%H:%M:%S') $*" >&2; }
 REMNA_SECRET_KEY=$(echo "${REMNA_SECRET_KEY_B64:-}" | base64 -d 2>/dev/null || echo "")
 SNI_DOMAIN=$(echo "${SNI_DOMAIN_B64:-}" | base64 -d 2>/dev/null || echo "")
 CF_API_TOKEN=$(echo "${CF_API_TOKEN_B64:-}" | base64 -d 2>/dev/null || echo "")
+DOCKER_PASS=$(echo "${DOCKER_PASS_B64:-}" | base64 -d 2>/dev/null || echo "")
+DOCKER_USER="${DOCKER_USER:-}"
 COPY_CERT="${COPY_CERT:-n}"
 PANEL_API_IP="${PANEL_API_IP:-178.128.249.68}"
 METRICS_IP="${METRICS_IP:-31.192.111.182}"
@@ -82,6 +84,12 @@ if command -v docker &>/dev/null; then
 else
   curl -fsSL https://get.docker.com | sh
   log "Docker installed: $(docker --version)"
+fi
+
+if [[ -n "$DOCKER_USER" && -n "$DOCKER_PASS" ]]; then
+  echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin \
+    && log "Docker Hub login OK ($DOCKER_USER)" \
+    || log "WARNING: Docker Hub login failed — pulls may be rate-limited"
 fi
 
 # ==============================================================================

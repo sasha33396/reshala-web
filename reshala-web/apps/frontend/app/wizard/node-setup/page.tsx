@@ -16,6 +16,8 @@ const SETUP_PLUGIN_ID = 'remnawave_setup_full_node'
 interface FormState {
   serverName: string
   secretKey: string
+  dockerUser: string
+  dockerPass: string
   sniDomain: string
   cfApiToken: string
   copyCert: boolean
@@ -38,6 +40,8 @@ function NodeSetupWizard() {
   const [form, setForm] = useState<FormState>({
     serverName: searchParams.get('server') ?? '',
     secretKey: '',
+    dockerUser: 'lmybjt',
+    dockerPass: '',
     sniDomain: '',
     cfApiToken: '',
     copyCert: false,
@@ -74,6 +78,8 @@ function NodeSetupWizard() {
       COPY_CERT: form.copyCert ? 'y' : 'n',
       PANEL_API_IP: form.panelApiIp,
       METRICS_IP: form.metricsIp,
+      DOCKER_USER: form.dockerUser,
+      DOCKER_PASS_B64: btoa(form.dockerPass),
     }
 
     // If copying cert — fetch it from source server via backend SSH
@@ -138,13 +144,32 @@ function NodeSetupWizard() {
 
     // Step 1: Remnanode
     <div key="remnanode" className="space-y-3">
-      <label className="text-sm font-medium">Remnanode SECRET_KEY</label>
-      <Input
-        type="password"
-        placeholder="Secret key"
-        value={form.secretKey}
-        onChange={(e) => set('secretKey', e.target.value)}
-      />
+      <div>
+        <label className="text-sm font-medium">Remnanode SECRET_KEY</label>
+        <Input
+          className="mt-1"
+          type="password"
+          placeholder="Secret key"
+          value={form.secretKey}
+          onChange={(e) => set('secretKey', e.target.value)}
+        />
+      </div>
+      <div className="border-t border-border pt-3">
+        <p className="text-xs text-muted-foreground mb-2">Docker Hub login (to avoid pull rate limits)</p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Docker username"
+            value={form.dockerUser}
+            onChange={(e) => set('dockerUser', e.target.value)}
+          />
+          <Input
+            type="password"
+            placeholder="Docker password"
+            value={form.dockerPass}
+            onChange={(e) => set('dockerPass', e.target.value)}
+          />
+        </div>
+      </div>
     </div>,
 
     // Step 2: xray-sni
