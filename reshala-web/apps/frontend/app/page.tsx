@@ -108,7 +108,9 @@ export default function HomePage() {
     refetchInterval: 60_000,
     retry: false,
   })
-  const panelMap = Object.fromEntries(panelNodes.map((n: PanelNode) => [n.address, n]))
+  const panelMap = panelNodes.length > 0
+    ? Object.fromEntries(panelNodes.map((n: PanelNode) => [n.address, n]))
+    : undefined
 
   const filtered = search.trim()
     ? groups

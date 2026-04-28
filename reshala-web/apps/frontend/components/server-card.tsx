@@ -28,7 +28,7 @@ export function ServerCard({ server, online, panelNode }: Props) {
           <span className="font-medium text-sm truncate pr-2">{server.name}</span>
           <div className="flex items-center gap-1.5">
             {panelNode !== undefined && (
-              <PanelBadge node={panelNode ?? null} />
+              <PanelBadge node={panelNode ?? null} online={online} />
             )}
             <StatusIndicator online={online} />
           </div>
@@ -73,17 +73,26 @@ function MiniBar({ label, value }: { label: string; value: number }) {
   )
 }
 
-function PanelBadge({ node }: { node: PanelNode | null }) {
-  if (!node) return null
+function PanelBadge({ node, online }: { node: PanelNode | null; online: boolean | null }) {
+  if (!node) return (
+    <span className="text-[10px] px-1 rounded bg-muted/60 text-muted-foreground/50">no panel</span>
+  )
   if (node.isDisabled) return (
     <span className="text-[10px] px-1 rounded bg-muted text-muted-foreground">disabled</span>
   )
+  if (node.isConnecting) return (
+    <span className="text-[10px] px-1 rounded bg-yellow-500/20 text-yellow-400">connecting…</span>
+  )
   if (!node.isConnected) return (
-    <span className="text-[10px] px-1 rounded bg-destructive/20 text-destructive">panel ✗</span>
+    <span className="text-[10px] px-1 rounded bg-destructive/20 text-destructive">panel offline</span>
   )
   return (
-    <span className="text-[10px] px-1 rounded bg-green-500/20 text-green-400 tabular-nums">
-      👤{node.usersOnline}
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 tabular-nums flex items-center gap-1">
+      <span>👤{node.usersOnline}</span>
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${online === true ? 'bg-green-400' : online === false ? 'bg-red-400' : 'bg-muted-foreground/40'}`}
+        title={online === true ? 'SSH ok' : online === false ? 'No SSH access' : 'SSH unknown'}
+      />
     </span>
   )
 }

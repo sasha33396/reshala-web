@@ -17,20 +17,6 @@ export class RemnawaveService {
     return !!this.baseUrl && !!this.apiKey
   }
 
-  async getRawNodes(): Promise<any> {
-    if (!this.isConfigured) return { error: 'Not configured: REMNAWAVE_URL or REMNAWAVE_API_KEY missing' }
-    try {
-      const res = await fetch(`${this.baseUrl}/api/nodes`, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-        signal: AbortSignal.timeout(10_000),
-      })
-      const text = await res.text()
-      return { status: res.status, url: `${this.baseUrl}/api/nodes`, body: JSON.parse(text) }
-    } catch (e: any) {
-      return { error: e?.message }
-    }
-  }
-
   async getNodes(): Promise<PanelNode[]> {
     if (!this.isConfigured) return []
     try {
