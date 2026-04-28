@@ -33,6 +33,7 @@ export default function HomePage() {
   const [provisionResult, setProvisionResult] = useState<ProvisionProgress | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [groupBy, setGroupBy] = useState<'country' | 'provider'>('country')
+  const [showUntracked, setShowUntracked] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function startPolling() {
@@ -109,6 +110,9 @@ export default function HomePage() {
     refetchInterval: 60_000,
     retry: false,
   })
+  const fleetIpSet = new Set(groups.flatMap((g) => g.servers.map((s) => s.ip)))
+  const untracked = (panelNodes as PanelNode[]).filter((n) => !fleetIpSet.has(n.address))
+
   const panelMap = panelNodes.length > 0
     ? Object.fromEntries(panelNodes.map((n: PanelNode) => [n.address, n]))
     : undefined
@@ -164,6 +168,12 @@ export default function HomePage() {
       setProvisioning(false)
       setProgress(null)
     }
+  }
+
+  function quickAdd(node: PanelNode) {
+    setAddForm({ name: node.name, ip: node.address, password: '', user: 'root', port: '22' })
+    setAddResult(null)
+    setShowAdd(true)
   }
 
   async function handleLogout() {
@@ -249,6 +259,40 @@ export default function HomePage() {
           </div>
         ) : (
           <FleetGrid groups={filtered} statusMap={statusMap} panelMap={panelMap} hostByIp={hostByIp} />
+        )}
+
+        {untracked.length > 0 && (
+          <div className="mt-8">
+            <button
+              className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground mb-3"
+              onClick={() => setShowUntracked((v) => !v)}
+            >
+              <span>{showUntracked ? '▾' : '▸'}</span>
+              <span>Not in fleet</span>
+              <span className="ml-1 text-xs font-normal bg-destructive/20 text-destructive px-1.5 py-0.5 rounded-full">
+                {untracked.length}
+              </span>
+            </button>
+            {showUntracked && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {untracked.map((node) => (
+                  <div key={node.uuid} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm truncate">{node.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${node.isConnected ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
+                        {node.isConnected ? `👤${node.usersOnline}` : node.isConnecting ? 'connecting…' : 'offline'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">{node.address}</p>
+                    <p className="text-[10px] text-muted-foreground/60">{node.countryCode}</p>
+                    <Button size="sm" variant="outline" className="mt-auto text-xs" onClick={() => quickAdd(node)}>
+                      + Add to fleet
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
