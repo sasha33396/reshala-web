@@ -36,9 +36,9 @@ services:
       dockerfile: apps/backend/Dockerfile
     restart: unless-stopped
     volumes:
-      - /root/.reshala_fleet:/app/fleet_db
-      - /root/.ssh:/app/ssh_keys
-      - /opt/reshala-web/plugins:/app/plugins:ro
+      - ${FLEET_DB_HOST_PATH:-/root/.reshala_fleet}:/app/fleet_db
+      - ${SSH_KEYS_HOST_PATH:-/root/.ssh}:/app/ssh_keys
+      - ${PLUGINS_HOST_PATH:-./plugins}:/app/plugins:ro
     env_file: .env
     environment:
       - NODE_ENV=production

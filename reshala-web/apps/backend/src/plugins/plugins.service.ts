@@ -8,7 +8,7 @@ export class PluginsService {
   private readonly logger = new Logger(PluginsService.name)
 
   private get pluginsDir(): string {
-    const base = process.env.PLUGINS_DIR ?? '/opt/reshala/plugins'
+    const base = process.env.PLUGINS_DIR ?? '/app/plugins'
     return path.join(base, 'skynet_commands')
   }
 
