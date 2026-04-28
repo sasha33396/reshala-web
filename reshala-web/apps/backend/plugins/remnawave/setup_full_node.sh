@@ -2,17 +2,21 @@
 # TITLE: Setup Full Node
 # SKYNET_HIDDEN: false
 #
-# Non-interactive version of the server setup script.
-# All parameters come from environment variables injected by the Reshala wizard.
+# Non-interactive server setup script.
+# All parameters are injected as environment variables by the Reshala wizard.
 #
 # Required env vars:
 #   REMNA_SECRET_KEY_B64  – base64(remnanode SECRET_KEY)
 #   SNI_DOMAIN_B64        – base64(xray-sni SNI_DOMAIN)
 #   CF_API_TOKEN_B64      – base64(Cloudflare API token)
 #   COPY_CERT             – "y" or "n"
-#   CERT_SOURCE_IP        – IP to scp cert from (required when COPY_CERT=y)
 #   PANEL_API_IP          – IP of the Remnawave panel (allowed on port 2222)
 #   METRICS_IP            – IP of the metrics scraper (allowed on 9100, 9200)
+#
+# When COPY_CERT=y the backend pre-fetches the cert and injects:
+#   CERT_CRT_B64          – base64 of .crt file
+#   CERT_KEY_B64          – base64 of .key file
+#   CERT_JSON_B64         – base64 of .json file (optional)
 
 set -uo pipefail
 
@@ -24,35 +28,34 @@ REMNA_SECRET_KEY=$(echo "${REMNA_SECRET_KEY_B64:-}" | base64 -d 2>/dev/null || e
 SNI_DOMAIN=$(echo "${SNI_DOMAIN_B64:-}" | base64 -d 2>/dev/null || echo "")
 CF_API_TOKEN=$(echo "${CF_API_TOKEN_B64:-}" | base64 -d 2>/dev/null || echo "")
 COPY_CERT="${COPY_CERT:-n}"
-CERT_SOURCE_IP="${CERT_SOURCE_IP:-}"
 PANEL_API_IP="${PANEL_API_IP:-178.128.249.68}"
 METRICS_IP="${METRICS_IP:-31.192.111.182}"
 
 # Validate required
-if [[ -z "$REMNA_SECRET_KEY" ]]; then
-  err "REMNA_SECRET_KEY_B64 is missing or empty."
-  exit 1
-fi
-if [[ -z "$SNI_DOMAIN" ]]; then
-  err "SNI_DOMAIN_B64 is missing or empty."
-  exit 1
-fi
-if [[ -z "$CF_API_TOKEN" ]]; then
-  err "CF_API_TOKEN_B64 is missing or empty."
-  exit 1
-fi
-if [[ "$COPY_CERT" == "y" && -z "$CERT_SOURCE_IP" ]]; then
-  err "COPY_CERT=y but CERT_SOURCE_IP is empty."
-  exit 1
-fi
+[[ -z "$REMNA_SECRET_KEY" ]] && { err "REMNA_SECRET_KEY_B64 is missing or empty."; exit 1; }
+[[ -z "$SNI_DOMAIN" ]]       && { err "SNI_DOMAIN_B64 is missing or empty."; exit 1; }
+[[ -z "$CF_API_TOKEN" ]]     && { err "CF_API_TOKEN_B64 is missing or empty."; exit 1; }
 
 log "Parameters:"
 log "  SNI_DOMAIN   = $SNI_DOMAIN"
 log "  COPY_CERT    = $COPY_CERT"
-log "  CERT_SOURCE  = ${CERT_SOURCE_IP:-—}"
 log "  PANEL_API_IP = $PANEL_API_IP"
 log "  METRICS_IP   = $METRICS_IP"
 echo ""
+
+# Docker pull with retry (handles DockerHub rate limits)
+docker_pull() {
+  local image="$1"
+  for attempt in 1 2 3; do
+    log "Pulling $image (attempt $attempt/3)…"
+    if docker pull "$image"; then
+      return 0
+    fi
+    [[ $attempt -lt 3 ]] && { log "Pull failed, retrying in 20s…"; sleep 20; }
+  done
+  err "Failed to pull $image after 3 attempts."
+  return 1
+}
 
 # ==============================================================================
 # 1. System update & base packages
@@ -89,8 +92,7 @@ modprobe nf_conntrack || true
 grep -qxF 'nf_conntrack' /etc/modules-load.d/conntrack.conf 2>/dev/null || \
   echo "nf_conntrack" >> /etc/modules-load.d/conntrack.conf
 
-SYSCTL_MARKER="# VPN Optimization — reshala"
-if ! grep -qF "$SYSCTL_MARKER" /etc/sysctl.conf; then
+if ! grep -qF '# VPN Optimization — reshala' /etc/sysctl.conf; then
 cat >> /etc/sysctl.conf << 'EOF'
 
 # VPN Optimization — reshala
@@ -116,8 +118,7 @@ log "Kernel parameters applied."
 # 5. File descriptor limits
 # ==============================================================================
 log "=== 5/11  File descriptor limits ==="
-LIMITS_MARKER="# reshala limits"
-if ! grep -qF "$LIMITS_MARKER" /etc/security/limits.conf; then
+if ! grep -qF '# reshala limits' /etc/security/limits.conf; then
 cat >> /etc/security/limits.conf << 'EOF'
 # reshala limits
 * soft nofile 300000
@@ -126,13 +127,11 @@ root soft nofile 300000
 root hard nofile 300000
 EOF
 fi
-
 mkdir -p /etc/systemd/system.conf.d/
 cat > /etc/systemd/system.conf.d/reshala-limits.conf << 'EOF'
 [Manager]
 DefaultLimitNOFILE=300000
 EOF
-
 systemctl daemon-reload
 log "FD limits applied."
 
@@ -148,7 +147,6 @@ ufw allow from "${PANEL_API_IP}" to any port 2222 proto tcp comment 'Remnanode A
 ufw allow from "${METRICS_IP}"   to any port 9100 proto tcp comment 'Node Metrics'
 ufw allow from "${METRICS_IP}"   to any port 9200 proto tcp comment 'Speedtest Metrics'
 
-# Block known abuse/scanner networks
 for net in \
   178.162.203.0/24 45.159.79.0/24 85.17.155.0/24 185.221.222.0/24 \
   89.150.57.0/24 46.165.199.0/24 178.162.202.0/24 85.17.70.0/24 64.62.203.0/24
@@ -167,7 +165,7 @@ log "UFW configured."
 # ==============================================================================
 log "=== 7/11  Fail2ban ==="
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fail2ban
-cp -n /etc/fail2ban/jail.conf /etc/fail2ban/jail.local || true
+cp -n /etc/fail2ban/jail.conf /etc/fail2ban/jail.local 2>/dev/null || true
 systemctl enable fail2ban
 systemctl restart fail2ban
 log "Fail2ban running."
@@ -198,7 +196,7 @@ services:
 COMPOSE
 
 cd /opt/remnanode
-docker compose pull
+docker_pull remnawave/node:latest || log "WARNING: Could not pull remnawave/node:latest — will use cached if available"
 docker compose up -d
 docker compose ps
 log "Remnanode started."
@@ -207,18 +205,14 @@ log "Remnanode started."
 # 9. Node Exporter
 # ==============================================================================
 log "=== 9/11  Node Exporter ==="
-if command -v node_exporter &>/dev/null || [[ -f /usr/local/bin/node_exporter ]]; then
-  log "Node Exporter already installed."
-else
+if [[ ! -f /usr/local/bin/node_exporter ]]; then
   NODE_EXPORTER_VERSION="1.8.2"
   cd /tmp
   wget -q "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
   tar xf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
   mv "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter" /usr/local/bin/
-  rm -rf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64" \
-         "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  rm -rf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64"*
 fi
-
 id node_exporter &>/dev/null || useradd -rs /bin/false node_exporter
 
 cat > /etc/systemd/system/node_exporter.service << 'EOF'
@@ -236,18 +230,16 @@ ExecStart=/usr/local/bin/node_exporter
 [Install]
 WantedBy=multi-user.target
 EOF
-
 systemctl daemon-reload
 systemctl enable node_exporter
 systemctl restart node_exporter
-systemctl is-active node_exporter && log "Node Exporter running." || err "Node Exporter failed to start."
+systemctl is-active node_exporter && log "Node Exporter running." || err "Node Exporter failed."
 
 # ==============================================================================
 # 10. Speedtest Exporter
 # ==============================================================================
 log "=== 10/11  Speedtest Exporter ==="
 mkdir -p /root/speedtest-exporter
-
 cat > /root/speedtest-exporter/docker-compose.yml << 'COMPOSE'
 services:
   speedtest-exporter:
@@ -264,7 +256,7 @@ services:
 COMPOSE
 
 cd /root/speedtest-exporter
-docker compose pull
+docker_pull kutovoys/speedtest-exporter || log "WARNING: Could not pull speedtest-exporter — will use cached if available"
 docker compose up -d
 docker compose ps
 log "Speedtest Exporter started."
@@ -292,7 +284,6 @@ log "Logrotate configured."
 log "=== Post-install  xray-sni ==="
 
 if [[ -d /root/xray-sni ]]; then
-  log "xray-sni already cloned, pulling latest..."
   cd /root/xray-sni && git pull
 else
   git clone https://github.com/locklance/xray-sni.git /root/xray-sni
@@ -304,38 +295,37 @@ SNI_PORT="9443"
 CF_API_TOKEN="${CF_API_TOKEN}"
 EOF
 
-if [[ "$COPY_CERT" == "y" ]]; then
-  log "Copying certificate from ${CERT_SOURCE_IP}..."
+CERT_BASE="/var/lib/docker/volumes/xray-sni_caddy_data/_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SNI_DOMAIN}"
 
-  CERT_SRC_PATH="/var/lib/docker/volumes/xray-sni_caddy_data/_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SNI_DOMAIN}"
-  CERT_DST_PATH="/var/lib/docker/volumes/xray-sni_caddy_data/_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SNI_DOMAIN}"
+if [[ "$COPY_CERT" == "y" ]]; then
+  if [[ -z "${CERT_CRT_B64:-}" || -z "${CERT_KEY_B64:-}" ]]; then
+    err "COPY_CERT=y but cert data not provided (CERT_CRT_B64/CERT_KEY_B64 empty)."
+    exit 1
+  fi
+
+  log "Writing certificate from backend-provided data…"
 
   # Create the caddy volume directory by briefly starting the container
   cd /root/xray-sni
-  docker compose up -d
+  docker_pull $(grep 'image:' docker-compose.yml | awk '{print $2}' | head -1) 2>/dev/null || true
+  docker compose up -d 2>/dev/null || true
   sleep 3
-  docker compose down
+  docker compose down 2>/dev/null || true
 
-  mkdir -p "$CERT_DST_PATH"
+  mkdir -p "$CERT_BASE"
+  echo "${CERT_CRT_B64}"  | base64 -d > "${CERT_BASE}/${SNI_DOMAIN}.crt"  && log "  .crt written"
+  echo "${CERT_KEY_B64}"  | base64 -d > "${CERT_BASE}/${SNI_DOMAIN}.key"  && log "  .key written"
+  if [[ -n "${CERT_JSON_B64:-}" ]]; then
+    echo "${CERT_JSON_B64}" | base64 -d > "${CERT_BASE}/${SNI_DOMAIN}.json" && log "  .json written"
+  fi
 
-  scp -o StrictHostKeyChecking=no -o ConnectTimeout=15 \
-    "root@${CERT_SOURCE_IP}:${CERT_SRC_PATH}/${SNI_DOMAIN}.crt" \
-    "${CERT_DST_PATH}/" && log "  .crt copied" || err "  Failed to copy .crt"
-
-  scp -o StrictHostKeyChecking=no -o ConnectTimeout=15 \
-    "root@${CERT_SOURCE_IP}:${CERT_SRC_PATH}/${SNI_DOMAIN}.key" \
-    "${CERT_DST_PATH}/" && log "  .key copied" || err "  Failed to copy .key"
-
-  scp -o StrictHostKeyChecking=no -o ConnectTimeout=15 \
-    "root@${CERT_SOURCE_IP}:${CERT_SRC_PATH}/${SNI_DOMAIN}.json" \
-    "${CERT_DST_PATH}/" 2>/dev/null && log "  .json copied" || log "  .json not found (ok)"
-
-  log "Certificate copied. Starting xray-sni..."
+  log "Starting xray-sni with copied certificate…"
   cd /root/xray-sni && docker compose up -d
   docker compose ps
 else
-  log "New domain — starting xray-sni (Caddy will request cert via DNS-01)..."
-  cd /root/xray-sni && docker compose up -d
+  log "New domain — Caddy will request cert via DNS-01 on start."
+  cd /root/xray-sni
+  docker compose up -d
   docker compose ps
 fi
 
@@ -343,8 +333,8 @@ fi
 log ""
 log "=== Setup complete ==="
 log ""
-log "Services started:"
-log "  remnanode       → port 2222 (restricted to ${PANEL_API_IP})"
-log "  node_exporter   → port 9100 (restricted to ${METRICS_IP})"
-log "  speedtest       → port 9200 (restricted to ${METRICS_IP})"
-log "  xray-sni        → port 443  (SNI: ${SNI_DOMAIN})"
+log "Services:"
+log "  remnanode       → :2222  (allowed from ${PANEL_API_IP})"
+log "  node_exporter   → :9100  (allowed from ${METRICS_IP})"
+log "  speedtest       → :9200  (allowed from ${METRICS_IP})"
+log "  xray-sni        → :443   (SNI: ${SNI_DOMAIN})"

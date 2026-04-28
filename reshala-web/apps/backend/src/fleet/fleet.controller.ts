@@ -5,6 +5,7 @@ import {
   Patch,
   Delete,
   Param,
+  Query,
   Body,
   NotFoundException,
   UploadedFile,
@@ -87,5 +88,14 @@ export class FleetController {
       throw new BadRequestException('serverNames and command required')
     }
     return this.fleetService.bulkSshCommand(dto.serverNames, dto.command)
+  }
+
+  @Get('read-cert')
+  async readCert(
+    @Query('serverName') serverName: string,
+    @Query('sniDomain') sniDomain: string,
+  ) {
+    if (!serverName || !sniDomain) throw new BadRequestException('serverName and sniDomain required')
+    return this.fleetService.readRemoteCert(serverName, sniDomain)
   }
 }

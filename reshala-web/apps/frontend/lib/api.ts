@@ -49,6 +49,10 @@ export const bulkSsh = (serverNames: string[], command: string) =>
     method: 'POST',
     body: JSON.stringify({ serverNames, command }),
   })
+export const readCert = (serverName: string, sniDomain: string) =>
+  req<{ crt: string | null; key: string | null; json: string | null }>(
+    `/fleet/read-cert?serverName=${encodeURIComponent(serverName)}&sniDomain=${encodeURIComponent(sniDomain)}`,
+  )
 
 export async function importFleet(file: File) {
   const fd = new FormData()

@@ -269,6 +269,25 @@ export class FleetService {
     return { ok: false, output: 'No valid key found' }
   }
 
+  async readRemoteCert(
+    serverName: string,
+    sniDomain: string,
+  ): Promise<{ crt: string | null; key: string | null; json: string | null }> {
+    const server = this.getByName(serverName)
+    if (!server) throw new NotFoundException(`Server "${serverName}" not found`)
+    const base = `/var/lib/docker/volumes/xray-sni_caddy_data/_data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${sniDomain}`
+    const readB64 = async (file: string): Promise<string | null> => {
+      const r = await this.runSshOnServer(server, `base64 -w0 '${file.replace(/'/g, "'\\''")}'`)
+      return r.ok ? r.output.trim() : null
+    }
+    const [crt, key, json] = await Promise.all([
+      readB64(`${base}/${sniDomain}.crt`),
+      readB64(`${base}/${sniDomain}.key`),
+      readB64(`${base}/${sniDomain}.json`),
+    ])
+    return { crt, key, json }
+  }
+
   async bulkSshCommand(
     names: string[],
     command: string,
