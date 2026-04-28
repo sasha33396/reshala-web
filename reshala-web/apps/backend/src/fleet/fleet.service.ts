@@ -30,6 +30,16 @@ function parseCountry(name: string): string {
   return COUNTRY_MAP[prefix] ?? '🌐 Untagged'
 }
 
+function parseProvider(name: string): string {
+  const parts = name.split('-')
+  let provider = parts[parts.length - 1]
+  if (/^\d+$/.test(provider) && parts.length > 1) {
+    provider = parts[parts.length - 2]
+  }
+  provider = provider.replace(/\(.*?\)/g, '')
+  return provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : '?'
+}
+
 function parseServer(line: string): Server | null {
   const parts = line.split('|')
   if (parts.length < 5) return null
@@ -85,15 +95,19 @@ export class FleetService {
     return this.getAll().find((s) => s.name === name) ?? null
   }
 
-  getGrouped(): FleetGroup[] {
+  getGrouped(groupBy: 'country' | 'provider' = 'country'): FleetGroup[] {
     const servers = this.getAll()
     const map = new Map<string, Server[]>()
     for (const server of servers) {
-      const country = server.country ?? '🌐 Untagged'
-      if (!map.has(country)) map.set(country, [])
-      map.get(country)!.push(server)
+      const key = groupBy === 'provider'
+        ? parseProvider(server.name)
+        : (server.country ?? '🌐 Untagged')
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(server)
     }
-    return Array.from(map.entries()).map(([country, servers]) => ({ country, servers }))
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([country, servers]) => ({ country, servers }))
   }
 
   add(server: Server): void {

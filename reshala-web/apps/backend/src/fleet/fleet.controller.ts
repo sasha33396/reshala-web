@@ -25,8 +25,9 @@ export class FleetController {
   constructor(private readonly fleetService: FleetService) {}
 
   @Get()
-  getAll() {
-    return this.fleetService.getGrouped()
+  getAll(@Query('groupBy') groupBy?: string) {
+    const mode = groupBy === 'provider' ? 'provider' : 'country'
+    return this.fleetService.getGrouped(mode)
   }
 
   @Get('provision-progress')

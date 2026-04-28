@@ -32,6 +32,7 @@ export default function HomePage() {
   const [progress, setProgress] = useState<ProvisionProgress | null>(null)
   const [provisionResult, setProvisionResult] = useState<ProvisionProgress | null>(null)
   const [showErrors, setShowErrors] = useState(false)
+  const [groupBy, setGroupBy] = useState<'country' | 'provider'>('country')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function startPolling() {
@@ -91,8 +92,8 @@ export default function HomePage() {
   }
 
   const { data: groups = [], isLoading } = useQuery({
-    queryKey: ['fleet'],
-    queryFn: fetchFleet,
+    queryKey: ['fleet', groupBy],
+    queryFn: () => fetchFleet(groupBy),
     refetchInterval: 30_000,
   })
 
@@ -173,6 +174,20 @@ export default function HomePage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-56"
           />
+          <div className="flex rounded-md border border-border overflow-hidden text-xs">
+            <button
+              className={`px-3 py-1.5 transition-colors ${groupBy === 'country' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setGroupBy('country')}
+            >
+              By country
+            </button>
+            <button
+              className={`px-3 py-1.5 transition-colors border-l border-border ${groupBy === 'provider' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setGroupBy('provider')}
+            >
+              By host
+            </button>
+          </div>
           <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }}>
             {t('fleet.addServer')}
           </Button>

@@ -28,7 +28,8 @@ export const logout = () =>
   req<{ ok: boolean }>('/auth/logout', { method: 'POST', body: '{}' })
 
 // Fleet
-export const fetchFleet = () => req<FleetGroup[]>('/fleet')
+export const fetchFleet = (groupBy?: 'country' | 'provider') =>
+  req<FleetGroup[]>(groupBy === 'provider' ? '/fleet?groupBy=provider' : '/fleet')
 export const fetchServer = (name: string) => req<Server>(`/fleet/${name}`)
 export const createServer = (data: Omit<Server, 'status' | 'country'>) =>
   req<{ ok: boolean }>('/fleet', { method: 'POST', body: JSON.stringify(data) })
