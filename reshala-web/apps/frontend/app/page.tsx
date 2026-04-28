@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts } from '@/lib/api'
@@ -276,19 +276,7 @@ export default function HomePage() {
             {showUntracked && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {untracked.map((node) => (
-                  <div key={node.uuid} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm truncate">{node.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${node.isConnected ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
-                        {node.isConnected ? `👤${node.usersOnline}` : node.isConnecting ? 'connecting…' : 'offline'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">{node.address}</p>
-                    <p className="text-[10px] text-muted-foreground/60">{node.countryCode}</p>
-                    <Button size="sm" variant="outline" className="mt-auto text-xs" onClick={() => quickAdd(node)}>
-                      + Add to fleet
-                    </Button>
-                  </div>
+                  <UntrackedCard key={node.uuid} node={node} onAdd={() => quickAdd(node)} />
                 ))}
               </div>
             )}
@@ -429,5 +417,42 @@ export default function HomePage() {
         </div>
       )}
     </main>
+  )
+}
+
+function UntrackedCard({ node, onAdd }: { node: PanelNode; onAdd: () => void }) {
+  const [copied, setCopied] = useState<string | null>(null)
+  const copy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(text)
+    setTimeout(() => setCopied(null), 1200)
+  }, [])
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2 select-none">
+      <div className="flex items-center justify-between">
+        <span
+          className="font-medium text-sm truncate hover:text-primary transition-colors cursor-pointer"
+          title="Click to copy"
+          onClick={() => copy(node.name)}
+        >
+          {copied === node.name ? '✓ copied' : node.name}
+        </span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${node.isConnected ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
+          {node.isConnected ? `👤${node.usersOnline}` : node.isConnecting ? 'connecting…' : 'offline'}
+        </span>
+      </div>
+      <p
+        className="text-xs text-muted-foreground font-mono hover:text-primary transition-colors cursor-pointer"
+        title="Click to copy"
+        onClick={() => copy(node.address)}
+      >
+        {copied === node.address ? '✓ copied' : node.address}
+      </p>
+      <p className="text-[10px] text-muted-foreground/60">{node.countryCode}</p>
+      <Button size="sm" variant="outline" className="mt-auto text-xs" onClick={onAdd}>
+        + Add to fleet
+      </Button>
+    </div>
   )
 }
