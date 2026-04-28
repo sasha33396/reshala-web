@@ -1,10 +1,21 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Server, PanelNode, PanelHost } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
+
+function useCopy() {
+  const [copied, setCopied] = useState<string | null>(null)
+  const copy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(text)
+    setTimeout(() => setCopied(null), 1200)
+  }, [])
+  return { copied, copy }
+}
 
 interface Props {
   server: Server
@@ -21,12 +32,19 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
     refetchInterval: 30_000,
     staleTime: 20_000,
   })
+  const { copied, copy } = useCopy()
 
   return (
     <Link href={`/server/${server.name}`}>
-      <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/60 transition-colors cursor-pointer h-full">
+      <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/60 transition-colors cursor-pointer h-full select-none">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-medium text-sm truncate pr-2">{server.name}</span>
+          <span
+            className="font-medium text-sm truncate pr-2 hover:text-primary transition-colors"
+            title="Click to copy"
+            onClick={(e) => { e.preventDefault(); copy(server.name) }}
+          >
+            {copied === server.name ? '✓ copied' : server.name}
+          </span>
           <div className="flex items-center gap-1.5">
             {panelNode !== undefined && (
               <PanelBadge node={panelNode ?? null} online={online} />
@@ -34,10 +52,20 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
             <StatusIndicator online={online} />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground font-mono">{server.ip}</p>
+        <p
+          className="text-xs text-muted-foreground font-mono hover:text-primary transition-colors cursor-pointer"
+          title="Click to copy"
+          onClick={(e) => { e.preventDefault(); copy(server.ip) }}
+        >
+          {copied === server.ip ? '✓ copied' : server.ip}
+        </p>
         {panelHost && (
-          <p className="text-[10px] text-muted-foreground/60 mb-2 truncate" title={`${panelHost.remark} — ${panelHost.address}:${panelHost.port}`}>
-            {panelHost.address}:{panelHost.port}
+          <p
+            className="text-[10px] text-muted-foreground/60 mb-2 truncate hover:text-primary/70 transition-colors cursor-pointer"
+            title={`${panelHost.remark} — click to copy`}
+            onClick={(e) => { e.preventDefault(); copy(panelHost.address) }}
+          >
+            {copied === panelHost.address ? '✓ copied' : `${panelHost.address}:${panelHost.port}`}
           </p>
         )}
         {!panelHost && <div className="mb-3" />}
