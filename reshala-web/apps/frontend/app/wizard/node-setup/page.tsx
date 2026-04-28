@@ -43,7 +43,7 @@ function NodeSetupWizard() {
     copyCert: false,
     certSourceIp: '',
     panelApiIp: '178.128.249.68',
-    metricsIp: '188.225.56.179',
+    metricsIp: '31.192.111.182',
   })
   const [running, setRunning] = useState(false)
   const [output, setOutput] = useState<{ type: string; data: string }[]>([])
