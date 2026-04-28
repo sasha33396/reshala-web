@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import type { Server, PanelNode } from '@reshala-web/shared'
+import type { Server, PanelNode, PanelHost } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
 
@@ -10,9 +10,10 @@ interface Props {
   server: Server
   online: boolean | null
   panelNode?: PanelNode | null
+  panelHost?: PanelHost
 }
 
-export function ServerCard({ server, online, panelNode }: Props) {
+export function ServerCard({ server, online, panelNode, panelHost }: Props) {
   const { data: metrics } = useQuery({
     queryKey: ['metrics', server.name],
     queryFn: () => fetchMetrics(server.name),
@@ -33,7 +34,13 @@ export function ServerCard({ server, online, panelNode }: Props) {
             <StatusIndicator online={online} />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mb-3 font-mono">{server.ip}</p>
+        <p className="text-xs text-muted-foreground font-mono">{server.ip}</p>
+        {panelHost && (
+          <p className="text-[10px] text-muted-foreground/60 mb-2 truncate" title={`${panelHost.remark} — ${panelHost.address}:${panelHost.port}`}>
+            {panelHost.address}:{panelHost.port}
+          </p>
+        )}
+        {!panelHost && <div className="mb-3" />}
 
         {online === false ? (
           <p className="text-xs text-destructive">Offline</p>

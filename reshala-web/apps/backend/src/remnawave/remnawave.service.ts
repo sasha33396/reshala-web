@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { PanelNode } from '@reshala-web/shared'
+import type { PanelNode, PanelHost } from '@reshala-web/shared'
 
 @Injectable()
 export class RemnawaveService {
@@ -47,6 +47,31 @@ export class RemnawaveService {
       }))
     } catch (e: any) {
       this.logger.warn(`Failed to fetch panel nodes: ${e?.message}`)
+      return []
+    }
+  }
+
+  async getHosts(): Promise<PanelHost[]> {
+    if (!this.isConfigured) return []
+    try {
+      const res = await fetch(`${this.baseUrl}/api/hosts`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) return []
+      const data: any = await res.json()
+      const hosts: any[] = Array.isArray(data) ? data : (data?.response ?? [])
+      return hosts
+        .filter((h: any) => !h.isDisabled)
+        .map((h: any): PanelHost => ({
+          uuid: h.uuid,
+          remark: h.remark,
+          address: h.address,
+          port: h.port ?? 443,
+          nodes: h.nodes ?? [],
+        }))
+    } catch (e: any) {
+      this.logger.warn(`Failed to fetch panel hosts: ${e?.message}`)
       return []
     }
   }

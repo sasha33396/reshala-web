@@ -1,4 +1,4 @@
-import type { Server, FleetGroup, Plugin, MetricData } from '@reshala-web/shared'
+import type { Server, FleetGroup, Plugin, MetricData, PanelNode, PanelHost } from '@reshala-web/shared'
 
 const BASE = '/api'
 
@@ -88,6 +88,7 @@ export const updateRemnanode = (name: string) =>
 
 // Remnawave Panel
 export const fetchPanelNodes = () => req<PanelNode[]>('/remnawave/nodes')
+export const fetchPanelHosts = () => req<PanelHost[]>('/remnawave/hosts')
 export const fetchPanelStatus = () => req<{ configured: boolean }>('/remnawave/status')
 
 // Analytics

@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes } from '@/lib/api'
-import type { PanelNode } from '@reshala-web/shared'
+import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts } from '@/lib/api'
+import type { PanelNode, PanelHost } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,27 @@ export default function HomePage() {
   const panelMap = panelNodes.length > 0
     ? Object.fromEntries(panelNodes.map((n: PanelNode) => [n.address, n]))
     : undefined
+
+  const { data: panelHosts = [] } = useQuery({
+    queryKey: ['panel-hosts'],
+    queryFn: fetchPanelHosts,
+    refetchInterval: 120_000,
+    retry: false,
+    staleTime: 60_000,
+  })
+  const hostByIp: Record<string, PanelHost> = (() => {
+    if (!panelHosts.length || !panelNodes.length) return {}
+    const nodeUuidToHost: Record<string, PanelHost> = {}
+    for (const host of panelHosts) {
+      for (const nodeUuid of host.nodes) nodeUuidToHost[nodeUuid] = host
+    }
+    const map: Record<string, PanelHost> = {}
+    for (const node of panelNodes as PanelNode[]) {
+      const host = nodeUuidToHost[node.uuid]
+      if (host) map[node.address] = host
+    }
+    return map
+  })()
 
   const filtered = search.trim()
     ? groups
@@ -227,7 +248,7 @@ export default function HomePage() {
             ))}
           </div>
         ) : (
-          <FleetGrid groups={filtered} statusMap={statusMap} panelMap={panelMap} />
+          <FleetGrid groups={filtered} statusMap={statusMap} panelMap={panelMap} hostByIp={hostByIp} />
         )}
       </div>
 

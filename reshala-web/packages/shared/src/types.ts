@@ -62,6 +62,14 @@ export interface PanelNode {
   countryCode: string
 }
 
+export interface PanelHost {
+  uuid: string
+  remark: string
+  address: string
+  port: number
+  nodes: string[]
+}
+
 export interface DockerContainer {
   id: string
   name: string

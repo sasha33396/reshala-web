@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { fetchFleet, readCert } from '@/lib/api'
+import { fetchFleet, readCert, fetchPanelHosts } from '@/lib/api'
+import type { PanelHost } from '@reshala-web/shared'
 import { createPluginsSocket } from '@/lib/socket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +59,13 @@ function NodeSetupWizard() {
   const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: () => fetchFleet() })
   const allServers = groups.flatMap((g: any) => g.servers)
   const certSources = allServers.filter((s: any) => s.name !== form.serverName)
+
+  const { data: panelHosts = [] } = useQuery<PanelHost[]>({
+    queryKey: ['panel-hosts'],
+    queryFn: fetchPanelHosts,
+    retry: false,
+    staleTime: 60_000,
+  })
 
   useEffect(() => {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight
@@ -176,7 +184,24 @@ function NodeSetupWizard() {
     <div key="sni" className="space-y-3">
       <div>
         <label className="text-sm font-medium">SNI Domain</label>
-        <Input className="mt-1" placeholder="sni.example.com" value={form.sniDomain} onChange={(e) => set('sniDomain', e.target.value)} />
+        {panelHosts.length > 0 && (
+          <Select
+            className="mt-1"
+            value={panelHosts.some((h) => h.address === form.sniDomain) ? form.sniDomain : ''}
+            onChange={(e) => { if (e.target.value) set('sniDomain', e.target.value) }}
+          >
+            <option value="">— choose from panel hosts —</option>
+            {panelHosts.map((h) => (
+              <option key={h.uuid} value={h.address}>{h.remark} ({h.address}:{h.port})</option>
+            ))}
+          </Select>
+        )}
+        <Input
+          className="mt-1"
+          placeholder={panelHosts.length > 0 ? 'or type manually…' : 'sni.example.com'}
+          value={form.sniDomain}
+          onChange={(e) => set('sniDomain', e.target.value)}
+        />
       </div>
       <div>
         <label className="text-sm font-medium">Cloudflare API Token</label>
