@@ -105,7 +105,12 @@ export default function RemnawavePage({ params }: Props) {
       socket.disconnect()
       qc.invalidateQueries({ queryKey: ['docker', name] })
     })
-    socket.on('error', () => { setInstalling(false); socket.disconnect() })
+    socket.on('error', (msg: unknown) => {
+      const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
+      setInstallOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${text}` }])
+      setInstalling(false)
+      socket.disconnect()
+    })
     socket.connect()
   }
 

@@ -83,16 +83,17 @@ function NodeSetupWizard() {
       envVars,
     }
 
-    socket.connect()
-    socket.emit('run', payload)
+    socket.on('connect', () => socket.emit('run', payload))
     socket.on('output', (line: { type: string; data: string }) =>
       setOutput((prev) => [...prev, line]),
     )
     socket.on('done', () => { setRunning(false); socket.disconnect() })
-    socket.on('error', (msg: string) => {
-      setOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${msg}` }])
+    socket.on('error', (msg: unknown) => {
+      const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
+      setOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${text}` }])
       setRunning(false)
     })
+    socket.connect()
   }
 
   const stepContent = [

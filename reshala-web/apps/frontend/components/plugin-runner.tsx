@@ -70,8 +70,9 @@ export function PluginRunner({ serverName }: Props) {
       setRunning(false)
       socket.disconnect()
     })
-    socket.on('error', (msg: string) => {
-      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `Error: ${msg}` }])
+    socket.on('error', (msg: unknown) => {
+      const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `Error: ${text}` }])
       setRunning(false)
     })
   }
