@@ -227,6 +227,74 @@ export class FleetService {
     )
   }
 
+  private async execSshCapture(
+    host: string,
+    port: number,
+    user: string,
+    keyPath: string,
+    command: string,
+  ): Promise<string> {
+    const { stdout, stderr } = await execFileAsync(
+      'ssh',
+      ['-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-o', 'ConnectTimeout=15',
+        '-o', 'BatchMode=yes',
+        '-i', keyPath,
+        '-p', String(port),
+        `${user}@${host}`,
+        command,
+      ],
+      { timeout: 30000 },
+    )
+    return (stdout + (stderr ? `\n${stderr}` : '')).trim()
+  }
+
+  async runSshOnServer(server: Server, command: string): Promise<{ ok: boolean; output: string }> {
+    const candidateKeys = [
+      server.keyPath,
+      ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map((k) => path.join(this.sshKeysDir, k)),
+    ]
+    for (const keyFile of candidateKeys) {
+      if (!fs.existsSync(keyFile)) continue
+      try {
+        const output = await this.execSshCapture(server.ip, server.port, server.user, keyFile, command)
+        return { ok: true, output }
+      } catch (e: any) {
+        const msg = (e?.stderr?.toString()?.trim() ?? e?.stdout?.toString()?.trim() ?? e?.message ?? '').split('\n')[0]
+        if (msg.includes('Permission denied') || msg.includes('authentication failed')) continue
+        return { ok: false, output: msg }
+      }
+    }
+    return { ok: false, output: 'No valid key found' }
+  }
+
+  async bulkSshCommand(
+    names: string[],
+    command: string,
+  ): Promise<Array<{ name: string; ok: boolean; output: string }>> {
+    const servers = names.map((n) => this.getByName(n)).filter((s): s is Server => s !== null)
+    const CONCURRENCY = 20
+    const results: Array<{ name: string; ok: boolean; output: string }> = []
+
+    for (let i = 0; i < servers.length; i += CONCURRENCY) {
+      const chunk = servers.slice(i, i + CONCURRENCY)
+      const settled = await Promise.allSettled(
+        chunk.map((s) => this.runSshOnServer(s, command)),
+      )
+      for (let j = 0; j < settled.length; j++) {
+        const r = settled[j]
+        if (r.status === 'fulfilled') {
+          results.push({ name: chunk[j].name, ...r.value })
+        } else {
+          results.push({ name: chunk[j].name, ok: false, output: r.reason?.message ?? 'unknown' })
+        }
+      }
+    }
+
+    return results
+  }
+
   async deployPublicKey(server: Server): Promise<void> {
     const pubKeyPath = `${server.keyPath}.pub`
     if (!fs.existsSync(pubKeyPath)) throw new Error(`Public key not found: ${pubKeyPath}`)

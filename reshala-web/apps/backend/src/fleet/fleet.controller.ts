@@ -80,4 +80,12 @@ export class FleetController {
     if (!dto.name || !dto.ip || !dto.password) throw new BadRequestException('name, ip, password required')
     return this.fleetService.addByPassword(dto.name, dto.ip, dto.password, dto.user ?? 'root', dto.port ?? 22)
   }
+
+  @Post('bulk-ssh')
+  async bulkSsh(@Body() dto: { serverNames: string[]; command: string }) {
+    if (!dto.serverNames?.length || !dto.command?.trim()) {
+      throw new BadRequestException('serverNames and command required')
+    }
+    return this.fleetService.bulkSshCommand(dto.serverNames, dto.command)
+  }
 }

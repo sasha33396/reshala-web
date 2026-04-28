@@ -44,6 +44,11 @@ export const fetchProvisionProgress = () =>
   req<{ running: boolean; total: number; done: number; ok: number; failed: number; errors: string[] }>('/fleet/provision-progress')
 export const addServerByPassword = (data: { name: string; ip: string; password: string; user?: string; port?: number }) =>
   req<{ ok: boolean; error?: string }>('/fleet/add-by-password', { method: 'POST', body: JSON.stringify(data) })
+export const bulkSsh = (serverNames: string[], command: string) =>
+  req<Array<{ name: string; ok: boolean; output: string }>>('/fleet/bulk-ssh', {
+    method: 'POST',
+    body: JSON.stringify({ serverNames, command }),
+  })
 
 export async function importFleet(file: File) {
   const fd = new FormData()
