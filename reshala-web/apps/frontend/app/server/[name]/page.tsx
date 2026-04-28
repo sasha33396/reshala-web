@@ -152,10 +152,10 @@ export default function ServerPage({ params }: Props) {
                   value={panelNode.isDisabled ? 'Disabled' : panelNode.isConnected ? 'Connected' : panelNode.isConnecting ? 'Connecting…' : 'Disconnected'}
                 />
                 <StatCard label="Users online" value={String(panelNode.usersOnline)} />
-                {panelNode.trafficUsedBytes !== null && (
+                {!!panelNode.trafficUsedBytes && (
                   <StatCard label="Traffic used" value={formatBytes(panelNode.trafficUsedBytes)} />
                 )}
-                {panelNode.trafficLimitBytes !== null && (
+                {!!panelNode.trafficLimitBytes && (
                   <StatCard label="Traffic limit" value={formatBytes(panelNode.trafficLimitBytes)} />
                 )}
               </div>
