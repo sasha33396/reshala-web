@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts } from '@/lib/api'
+import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer } from '@/lib/api'
 import type { PanelNode, PanelHost } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
@@ -15,6 +15,8 @@ import {
   Boxes,
   Layers,
   LogOut,
+  Maximize2,
+  Minimize2,
   Plus,
   Search,
   Upload,
@@ -45,6 +47,8 @@ export default function HomePage() {
   const [showErrors, setShowErrors] = useState(false)
   const [groupBy, setGroupBy] = useState<'country' | 'provider'>('country')
   const [showUntracked, setShowUntracked] = useState(false)
+  const [deletingServer, setDeletingServer] = useState<string | null>(null)
+  const [provisionMinimized, setProvisionMinimized] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function startPolling() {
@@ -59,6 +63,7 @@ export default function HomePage() {
           setProvisioning(false)
           setProvisionResult(p)
           setProgress(null)
+          setProvisionMinimized(false)
         }
       } catch {}
     }, 600)
@@ -171,6 +176,7 @@ export default function HomePage() {
 
   async function handleProvisionAll() {
     setProvisioning(true)
+    setProvisionMinimized(false)
     setProvisionResult(null)
     setProgress(null)
     startPolling()
@@ -181,7 +187,23 @@ export default function HomePage() {
     } finally {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       setProvisioning(false)
+      setProvisionMinimized(false)
       setProgress(null)
+    }
+  }
+
+  async function handleDeleteServer(name: string) {
+    const ok = window.confirm(`Remove "${name}" from Reshala fleet?`)
+    if (!ok) return
+    setDeletingServer(name)
+    try {
+      await deleteServer(name)
+      queryClient.invalidateQueries({ queryKey: ['fleet'] })
+      queryClient.invalidateQueries({ queryKey: ['fleet-status'] })
+    } catch (e: any) {
+      window.alert(e?.message ?? 'Failed to delete server')
+    } finally {
+      setDeletingServer(null)
     }
   }
 
@@ -290,7 +312,14 @@ export default function HomePage() {
         {isLoading ? (
           <FleetSkeleton />
         ) : (
-          <FleetGrid groups={filtered} statusMap={statusMap} panelMap={panelMap} hostByIp={hostByIp} />
+          <FleetGrid
+            groups={filtered}
+            statusMap={statusMap}
+            panelMap={panelMap}
+            hostByIp={hostByIp}
+            deletingServer={deletingServer}
+            onDeleteServer={handleDeleteServer}
+          />
         )}
 
         {untracked.length > 0 && (
@@ -317,15 +346,18 @@ export default function HomePage() {
       </div>
 
       {/* Provision progress overlay */}
-      {provisioning && (
+      {provisioning && !provisionMinimized && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-xl p-8 w-full max-w-md mx-4 space-y-5 shadow-2xl">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3">
               <span className="text-2xl">🔑</span>
               <div>
                 <h2 className="font-bold text-lg">Provision All</h2>
                 <p className="text-xs text-muted-foreground">Deploying SSH keys to all servers…</p>
               </div>
+              <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(true)} title="Run in background">
+                <Minimize2 className="h-4 w-4" />
+              </Button>
             </div>
 
             {progress && progress.total > 0 ? (
@@ -359,6 +391,27 @@ export default function HomePage() {
                 <div className="h-full bg-primary/40 rounded-full animate-pulse w-full" />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {provisioning && provisionMinimized && (
+        <div className="fixed bottom-4 right-4 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-border bg-card p-4 shadow-2xl">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Provision All</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {progress && progress.total > 0
+                  ? `${progress.done}/${progress.total} servers, ${progress.ok} ok, ${progress.failed} failed`
+                  : 'Starting...'}
+              </p>
+            </div>
+            <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(false)} title="Show progress">
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${pct}%` }} />
           </div>
         </div>
       )}

@@ -6,9 +6,11 @@ interface Props {
   statusMap: Record<string, boolean>
   panelMap?: Record<string, PanelNode>
   hostByIp?: Record<string, PanelHost>
+  deletingServer?: string | null
+  onDeleteServer?: (name: string) => void
 }
 
-export function FleetGrid({ groups, statusMap, panelMap, hostByIp }: Props) {
+export function FleetGrid({ groups, statusMap, panelMap, hostByIp, deletingServer, onDeleteServer }: Props) {
   if (groups.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card px-6 py-14 text-center">
@@ -40,6 +42,8 @@ export function FleetGrid({ groups, statusMap, panelMap, hostByIp }: Props) {
                 online={statusMap[server.ip] ?? null}
                 panelNode={panelMap ? (panelMap[server.ip] ?? null) : undefined}
                 panelHost={hostByIp?.[server.ip]}
+                deleting={deletingServer === server.name}
+                onDelete={onDeleteServer}
               />
             ))}
           </div>

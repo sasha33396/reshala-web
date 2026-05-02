@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Server, PanelNode, PanelHost } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
+import { Trash2 } from 'lucide-react'
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null)
@@ -22,9 +23,11 @@ interface Props {
   online: boolean | null
   panelNode?: PanelNode | null
   panelHost?: PanelHost
+  deleting?: boolean
+  onDelete?: (name: string) => void
 }
 
-export function ServerCard({ server, online, panelNode, panelHost }: Props) {
+export function ServerCard({ server, online, panelNode, panelHost, deleting, onDelete }: Props) {
   const { data: metrics } = useQuery({
     queryKey: ['metrics', server.name],
     queryFn: () => fetchMetrics(server.name),
@@ -33,10 +36,11 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
     staleTime: 20_000,
   })
   const { copied, copy } = useCopy()
+  const noPanel = panelNode === null
 
   return (
     <Link href={`/server/${server.name}`}>
-      <div className="group h-full cursor-pointer select-none rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/60 hover:bg-accent/30">
+      <div className={`group h-full cursor-pointer select-none rounded-lg border bg-card p-4 transition-colors hover:border-primary/60 hover:bg-accent/30 ${noPanel ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-border'}`}>
         <div className="mb-2 flex items-start justify-between gap-3">
           <span
             className="min-w-0 truncate pr-2 text-sm font-semibold transition-colors group-hover:text-primary"
@@ -50,6 +54,21 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
               <PanelBadge node={panelNode ?? null} online={online} />
             )}
             <StatusIndicator online={online} />
+            {onDelete && (
+              <button
+                type="button"
+                className="rounded p-1 text-muted-foreground opacity-70 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-40"
+                title="Remove from fleet"
+                disabled={deleting}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onDelete(server.name)
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
         <p
@@ -68,7 +87,21 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
             {copied === panelHost.address ? '✓ copied' : `${panelHost.address}:${panelHost.port}`}
           </p>
         )}
-        {!panelHost && <p className="mb-3 text-[11px] text-muted-foreground/40">No panel host</p>}
+        {!panelHost && <p className={`mb-3 text-[11px] ${noPanel ? 'font-medium text-yellow-500' : 'text-muted-foreground/40'}`}>{noPanel ? 'No panel node' : 'No panel host'}</p>}
+        {noPanel && onDelete && (
+          <button
+            type="button"
+            className="mb-3 w-full rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-medium text-yellow-600 transition-colors hover:bg-yellow-500/20 disabled:pointer-events-none disabled:opacity-50"
+            disabled={deleting}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onDelete(server.name)
+            }}
+          >
+            {deleting ? 'Removing...' : 'No panel - remove'}
+          </button>
+        )}
 
         {online === false ? (
           <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -112,7 +145,7 @@ function MiniBar({ label, value }: { label: string; value: number }) {
 
 function PanelBadge({ node, online }: { node: PanelNode | null; online: boolean | null }) {
   if (!node) return (
-    <span className="text-[10px] px-1 rounded bg-muted/60 text-muted-foreground/50">no panel</span>
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-500">no panel</span>
   )
   if (node.isDisabled) return (
     <span className="text-[10px] px-1 rounded bg-muted text-muted-foreground">disabled</span>
