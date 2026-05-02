@@ -9,6 +9,17 @@ import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Activity,
+  Bell,
+  Boxes,
+  Layers,
+  LogOut,
+  Plus,
+  Search,
+  Upload,
+  UserPlus,
+} from 'lucide-react'
 
 type ProvisionProgress = {
   running: boolean
@@ -153,6 +164,10 @@ export default function HomePage() {
 
   const totalOnline = Object.values(statusMap).filter(Boolean).length
   const totalServers = groups.reduce((n, g) => n + g.servers.length, 0)
+  const totalOffline = Math.max(0, totalServers - totalOnline)
+  const filteredServers = filtered.reduce((n, g) => n + g.servers.length, 0)
+  const panelConnected = (panelNodes as PanelNode[]).filter((n) => n.isConnected).length
+  const panelUsers = (panelNodes as PanelNode[]).reduce((sum, n) => sum + (n.usersOnline ?? 0), 0)
 
   async function handleProvisionAll() {
     setProvisioning(true)
@@ -188,23 +203,31 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold">{t('fleet.title')}</h1>
-          {!isLoading && (
-            <span className="text-xs text-muted-foreground">
-              {totalOnline}/{totalServers} {t('fleet.online')}
-            </span>
-          )}
-        </div>
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 backdrop-blur lg:px-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <Input
-            type="search"
-            placeholder={t('fleet.search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-56"
-          />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card">
+            <Layers className="h-4 w-4" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold leading-5">{t('fleet.title')}</h1>
+            {!isLoading && (
+              <span className="text-xs text-muted-foreground">
+                {filteredServers} shown from {totalServers} servers
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder={t('fleet.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <div className="flex rounded-md border border-border overflow-hidden text-xs">
             <button
               className={`px-3 py-1.5 transition-colors ${groupBy === 'country' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
@@ -219,20 +242,25 @@ export default function HomePage() {
               By host
             </button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }}>
-            {t('fleet.addServer')}
+          <Button variant="default" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span>{t('fleet.addServer').replace('+ ', '')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/analytics')}>
-            {t('nav.analytics')}
+          <Button variant="outline" size="sm" onClick={() => router.push('/analytics')} className="gap-2">
+            <Activity className="h-4 w-4" />
+            <span>{t('nav.analytics')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/alerts')}>
-            {t('nav.alerts')}
+          <Button variant="outline" size="sm" onClick={() => router.push('/alerts')} className="gap-2">
+            <Bell className="h-4 w-4" />
+            <span>{t('nav.alerts')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/bulk')}>
-            {t('nav.bulkOps')}
+          <Button variant="outline" size="sm" onClick={() => router.push('/bulk')} className="gap-2">
+            <Boxes className="h-4 w-4" />
+            <span>{t('nav.bulkOps')}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/import')}>
-            {t('nav.import')}
+          <Button variant="outline" size="sm" onClick={() => router.push('/import')} className="gap-2">
+            <Upload className="h-4 w-4" />
+            <span>{t('nav.import')}</span>
           </Button>
           <Button
             variant="outline"
@@ -240,23 +268,27 @@ export default function HomePage() {
             onClick={handleProvisionAll}
             disabled={provisioning}
             title="Deploy SSH keys to all servers using stored passwords"
+            className="gap-2"
           >
-            {provisioning ? '🔑 Provisioning…' : '🔑 Provision All'}
+            <UserPlus className="h-4 w-4" />
+            <span>{provisioning ? 'Provisioning...' : 'Provision All'}</span>
           </Button>
           <LangToggle />
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            {t('nav.logout')}
+          <Button variant="ghost" size="icon" onClick={handleLogout} title={t('nav.logout')}>
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </header>
 
-      <div className="p-6 max-w-screen-2xl mx-auto">
+      <div className="mx-auto max-w-screen-2xl px-4 py-5 lg:px-6">
+        <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <StatPill label="Online" value={totalOnline} tone="good" />
+          <StatPill label="Offline" value={totalOffline} tone={totalOffline > 0 ? 'bad' : 'muted'} />
+          <StatPill label="Panel nodes" value={panelConnected} tone="muted" />
+          <StatPill label="Users" value={panelUsers} tone="muted" />
+        </div>
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-lg bg-muted animate-pulse" />
-            ))}
-          </div>
+          <FleetSkeleton />
         ) : (
           <FleetGrid groups={filtered} statusMap={statusMap} panelMap={panelMap} hostByIp={hostByIp} />
         )}
@@ -417,6 +449,38 @@ export default function HomePage() {
         </div>
       )}
     </main>
+  )
+}
+
+function StatPill({ label, value, tone }: { label: string; value: number; tone: 'good' | 'bad' | 'muted' }) {
+  const toneClass = {
+    good: 'border-green-500/25 bg-green-500/10 text-green-500',
+    bad: 'border-destructive/30 bg-destructive/10 text-destructive',
+    muted: 'border-border bg-card text-foreground',
+  }[tone]
+
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${toneClass}`}>
+      <div className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+    </div>
+  )
+}
+
+function FleetSkeleton() {
+  return (
+    <div className="space-y-6">
+      {Array.from({ length: 2 }).map((_, group) => (
+        <div key={group} className="space-y-3">
+          <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((__, i) => (
+              <div key={i} className="h-36 animate-pulse rounded-lg border border-border bg-card" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

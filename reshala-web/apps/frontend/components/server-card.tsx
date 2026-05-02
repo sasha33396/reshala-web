@@ -36,10 +36,10 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
 
   return (
     <Link href={`/server/${server.name}`}>
-      <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/60 transition-colors cursor-pointer h-full select-none">
-        <div className="flex items-center justify-between mb-1">
+      <div className="group h-full cursor-pointer select-none rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/60 hover:bg-accent/30">
+        <div className="mb-2 flex items-start justify-between gap-3">
           <span
-            className="font-medium text-sm truncate pr-2 hover:text-primary transition-colors"
+            className="min-w-0 truncate pr-2 text-sm font-semibold transition-colors group-hover:text-primary"
             title="Click to copy"
             onClick={(e) => { e.preventDefault(); copy(server.name) }}
           >
@@ -53,7 +53,7 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
           </div>
         </div>
         <p
-          className="text-xs text-muted-foreground font-mono hover:text-primary transition-colors cursor-pointer"
+          className="truncate font-mono text-xs text-muted-foreground transition-colors hover:text-primary"
           title="Click to copy"
           onClick={(e) => { e.preventDefault(); copy(server.ip) }}
         >
@@ -61,27 +61,29 @@ export function ServerCard({ server, online, panelNode, panelHost }: Props) {
         </p>
         {panelHost && (
           <p
-            className="text-[10px] text-muted-foreground/60 mb-2 truncate hover:text-primary/70 transition-colors cursor-pointer"
+            className="mb-3 truncate text-[11px] text-muted-foreground/70 transition-colors hover:text-primary/70"
             title={`${panelHost.remark} — click to copy`}
             onClick={(e) => { e.preventDefault(); copy(panelHost.address) }}
           >
             {copied === panelHost.address ? '✓ copied' : `${panelHost.address}:${panelHost.port}`}
           </p>
         )}
-        {!panelHost && <div className="mb-3" />}
+        {!panelHost && <p className="mb-3 text-[11px] text-muted-foreground/40">No panel host</p>}
 
         {online === false ? (
-          <p className="text-xs text-destructive">Offline</p>
+          <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Offline
+          </div>
         ) : metrics && (metrics.cpu > 0 || metrics.ram > 0 || metrics.uptime > 0) ? (
           <>
             <MiniBar label="CPU" value={metrics.cpu} />
             <MiniBar label="RAM" value={metrics.ram} />
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
               Up {formatUptime(metrics.uptime)}
             </p>
           </>
         ) : metrics ? (
-          <p className="text-xs text-muted-foreground/50 mt-2">No metrics</p>
+          <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">No metrics</p>
         ) : (
           <div className="space-y-1.5">
             <div className="h-1.5 w-full rounded bg-muted animate-pulse" />
@@ -98,9 +100,9 @@ function MiniBar({ label, value }: { label: string; value: number }) {
   const color =
     pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-primary'
   return (
-    <div className="flex items-center gap-2 mb-1">
+    <div className="mb-1.5 flex items-center gap-2">
       <span className="text-xs text-muted-foreground w-8">{label}</span>
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs w-9 text-right tabular-nums">{pct.toFixed(0)}%</span>
