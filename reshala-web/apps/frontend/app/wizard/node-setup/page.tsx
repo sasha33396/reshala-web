@@ -25,6 +25,7 @@ interface FormState {
   certSourceServerName: string
   panelApiIp: string
   metricsIp: string
+  createMissingDnsZone: boolean
 }
 
 export default function NodeSetupPage() {
@@ -41,6 +42,21 @@ function findDnsZone(zones: CloudflareNodeZone[], sniDomain: string): Cloudflare
   return zones.find((zone) => zone.fqdn.toLowerCase() === normalized) ?? null
 }
 
+function findMissingDnsZone(
+  zones: CloudflareNodeZone[],
+  sniDomain: string,
+): { domain: string; zoneName: string; fqdn: string } | null {
+  const normalized = sniDomain.trim().toLowerCase()
+  if (!normalized) return null
+  const domains = Array.from(new Set(zones.map((zone) => zone.domain.toLowerCase())))
+    .sort((a, b) => b.length - a.length)
+  const domain = domains.find((item) => normalized === item || normalized.endsWith(`.${item}`))
+  if (!domain || normalized === domain) return null
+  const zoneName = normalized.slice(0, -(domain.length + 1))
+  if (!zoneName || zoneName.includes('..')) return null
+  return { domain, zoneName, fqdn: `${zoneName}.${domain}` }
+}
+
 function NodeSetupWizard() {
   const searchParams = useSearchParams()
   const [step, setStep] = useState(0)
@@ -55,6 +71,7 @@ function NodeSetupWizard() {
     certSourceServerName: '',
     panelApiIp: '178.128.249.68',
     metricsIp: '31.192.111.182',
+    createMissingDnsZone: false,
   })
   const [running, setRunning] = useState(false)
   const [fetchingCert, setFetchingCert] = useState(false)
@@ -81,6 +98,7 @@ function NodeSetupWizard() {
     staleTime: 30_000,
   })
   const selectedDnsZone = findDnsZone(dnsConfig?.domains ?? [], form.sniDomain)
+  const missingDnsZone = !selectedDnsZone ? findMissingDnsZone(dnsConfig?.domains ?? [], form.sniDomain) : null
 
   useEffect(() => {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight
@@ -88,6 +106,10 @@ function NodeSetupWizard() {
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function setSniDomain(value: string) {
+    setForm((prev) => ({ ...prev, sniDomain: value, createMissingDnsZone: false }))
   }
 
   async function launch() {
@@ -155,8 +177,16 @@ function NodeSetupWizard() {
         } catch (e: any) {
           setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Failed to update DNS zone: ${e?.message ?? e}` }])
         }
+      } else if (missingDnsZone && form.createMissingDnsZone) {
+        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Creating DNS zone ${missingDnsZone.fqdn} in hit monitoring...` }])
+        try {
+          await addServerToCloudflareZone(form.serverName, missingDnsZone.domain, missingDnsZone.zoneName)
+          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS zone created: ${missingDnsZone.fqdn}` }])
+        } catch (e: any) {
+          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Failed to create DNS zone: ${e?.message ?? e}` }])
+        }
       } else {
-        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] No matching DNS zone found for SNI ${form.sniDomain}. Add it manually in Cloudflare DNS block.` }])
+        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] No matching DNS zone found for SNI ${form.sniDomain}. DNS auto-add skipped.` }])
       }
       setRunning(false)
       socket.disconnect()
@@ -221,7 +251,7 @@ function NodeSetupWizard() {
           <Select
             className="mt-1"
             value={panelHosts.some((h) => h.address === form.sniDomain) ? form.sniDomain : ''}
-            onChange={(e) => { if (e.target.value) set('sniDomain', e.target.value) }}
+            onChange={(e) => { if (e.target.value) setSniDomain(e.target.value) }}
           >
             <option value="">— choose from panel hosts —</option>
             {panelHosts.map((h) => (
@@ -233,16 +263,37 @@ function NodeSetupWizard() {
           className="mt-1"
           placeholder={panelHosts.length > 0 ? 'or type manually…' : 'sni.example.com'}
           value={form.sniDomain}
-          onChange={(e) => set('sniDomain', e.target.value)}
+          onChange={(e) => setSniDomain(e.target.value)}
         />
         {form.sniDomain && (
           <p className={`mt-2 text-xs ${selectedDnsZone ? 'text-emerald-400' : 'text-yellow-400'}`}>
             {selectedDnsZone
               ? `DNS auto-add: ${selectedDnsZone.fqdn} (${selectedDnsZone.ips.length} IPs now)`
-              : 'DNS auto-add: no matching hit monitoring zone for this SNI'}
+              : missingDnsZone
+                ? `DNS warning: subdomain ${missingDnsZone.zoneName} does not exist for ${missingDnsZone.domain}`
+                : 'DNS warning: base domain was not found in hit monitoring config'}
           </p>
         )}
       </div>
+      {missingDnsZone && (
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3">
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="createMissingDnsZone"
+              className="mt-1"
+              checked={form.createMissingDnsZone}
+              onChange={(e) => set('createMissingDnsZone', e.target.checked)}
+            />
+            <label htmlFor="createMissingDnsZone" className="text-sm">
+              Create new hit monitoring block for <strong>{missingDnsZone.fqdn}</strong> after successful setup
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-yellow-300">
+            Check the spelling carefully. A typo will create a separate DNS zone block.
+          </p>
+        </div>
+      )}
       <div>
         <label className="text-sm font-medium">Cloudflare API Token</label>
         <Input className="mt-1" type="password" value={form.cfApiToken} onChange={(e) => set('cfApiToken', e.target.value)} />
@@ -283,7 +334,14 @@ function NodeSetupWizard() {
     <div key="confirm" className="space-y-2 text-sm">
       <p><span className="text-muted-foreground">Server:</span> <strong>{form.serverName}</strong></p>
       <p><span className="text-muted-foreground">SNI Domain:</span> {form.sniDomain}</p>
-      <p><span className="text-muted-foreground">DNS zone:</span> {selectedDnsZone ? selectedDnsZone.fqdn : 'not found, will not auto-add'}</p>
+      <p>
+        <span className="text-muted-foreground">DNS zone:</span>{' '}
+        {selectedDnsZone
+          ? selectedDnsZone.fqdn
+          : missingDnsZone && form.createMissingDnsZone
+            ? `will create ${missingDnsZone.fqdn}`
+            : 'not found, will not auto-add'}
+      </p>
       <p><span className="text-muted-foreground">Copy cert:</span> {form.copyCert ? `yes (from ${form.certSourceServerName}${selectedCertSource ? ` / ${selectedCertSource.ip}` : ''})` : 'no'}</p>
       <p><span className="text-muted-foreground">Panel API IP:</span> {form.panelApiIp}</p>
       <p><span className="text-muted-foreground">Metrics IP:</span> {form.metricsIp}</p>
