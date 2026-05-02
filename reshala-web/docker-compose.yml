@@ -46,6 +46,7 @@ services:
       - SSH_KEYS_DIR=/app/ssh_keys
       - PLUGINS_DIR=/app/plugins
       - BACKEND_PORT=3001
+      - SSH_COMMAND_TIMEOUT_MS=${SSH_COMMAND_TIMEOUT_MS:-180000}
       - PROMETHEUS_URL=http://prometheus:9090
       - SOCKS5_HOST=${SOCKS5_HOST:-}
       - SOCKS5_PORT=${SOCKS5_PORT:-1080}

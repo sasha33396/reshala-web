@@ -6,7 +6,13 @@ import { useQuery } from '@tanstack/react-query'
 import type { Server, PanelNode, PanelHost } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
-import { Trash2 } from 'lucide-react'
+import { Gauge, Loader2, Trash2 } from 'lucide-react'
+
+type SpeedtestState = {
+  running?: boolean
+  ok?: boolean
+  message?: string
+}
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null)
@@ -25,9 +31,11 @@ interface Props {
   panelHost?: PanelHost
   deleting?: boolean
   onDelete?: (name: string) => void
+  speedtest?: SpeedtestState
+  onSpeedtest?: (name: string) => void
 }
 
-export function ServerCard({ server, online, panelNode, panelHost, deleting, onDelete }: Props) {
+export function ServerCard({ server, online, panelNode, panelHost, deleting, onDelete, speedtest, onSpeedtest }: Props) {
   const { data: metrics } = useQuery({
     queryKey: ['metrics', server.name],
     queryFn: () => fetchMetrics(server.name),
@@ -101,6 +109,30 @@ export function ServerCard({ server, online, panelNode, panelHost, deleting, onD
           >
             {deleting ? 'Removing...' : 'No panel - remove'}
           </button>
+        )}
+
+        {onSpeedtest && (
+          <div className="mb-3">
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+              disabled={speedtest?.running}
+              title="Install snap/speedtest if needed and run speedtest"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onSpeedtest(server.name)
+              }}
+            >
+              {speedtest?.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gauge className="h-3.5 w-3.5" />}
+              <span>{speedtest?.running ? 'Speedtest...' : 'Speedtest'}</span>
+            </button>
+            {speedtest?.message && (
+              <p className={`mt-1.5 line-clamp-2 text-[11px] ${speedtest.ok === false ? 'text-destructive' : speedtest.ok ? 'text-green-500' : 'text-muted-foreground'}`}>
+                {speedtest.message}
+              </p>
+            )}
+          </div>
         )}
 
         {online === false ? (

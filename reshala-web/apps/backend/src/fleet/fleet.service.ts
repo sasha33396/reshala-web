@@ -259,7 +259,7 @@ export class FleetService {
         `${user}@${host}`,
         command,
       ],
-      { timeout: 30000 },
+      { timeout: parseInt(process.env.SSH_COMMAND_TIMEOUT_MS ?? '180000', 10) },
     )
     return (stdout + (stderr ? `\n${stderr}` : '')).trim()
   }

@@ -1,6 +1,12 @@
 import type { FleetGroup, PanelNode, PanelHost } from '@reshala-web/shared'
 import { ServerCard } from './server-card'
 
+type SpeedtestState = {
+  running?: boolean
+  ok?: boolean
+  message?: string
+}
+
 interface Props {
   groups: FleetGroup[]
   statusMap: Record<string, boolean>
@@ -8,9 +14,11 @@ interface Props {
   hostByIp?: Record<string, PanelHost>
   deletingServer?: string | null
   onDeleteServer?: (name: string) => void
+  speedtests?: Record<string, SpeedtestState>
+  onSpeedtest?: (name: string) => void
 }
 
-export function FleetGrid({ groups, statusMap, panelMap, hostByIp, deletingServer, onDeleteServer }: Props) {
+export function FleetGrid({ groups, statusMap, panelMap, hostByIp, deletingServer, onDeleteServer, speedtests, onSpeedtest }: Props) {
   if (groups.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card px-6 py-14 text-center">
@@ -44,6 +52,8 @@ export function FleetGrid({ groups, statusMap, panelMap, hostByIp, deletingServe
                 panelHost={hostByIp?.[server.ip]}
                 deleting={deletingServer === server.name}
                 onDelete={onDeleteServer}
+                speedtest={speedtests?.[server.name]}
+                onSpeedtest={onSpeedtest}
               />
             ))}
           </div>
