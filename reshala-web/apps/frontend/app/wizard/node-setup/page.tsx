@@ -139,11 +139,11 @@ function NodeSetupWizard() {
     // If copying cert — fetch it from source server via backend SSH
     if (form.copyCert && form.certSourceServerName) {
       setFetchingCert(true)
-      setOutput([{ type: 'stdout', data: `[INFO] Fetching certificate from ${form.certSourceServerName}…` }])
+      setOutput([{ type: 'stdout', data: `[INFO] Получаем сертификат с ${form.certSourceServerName}...` }])
       try {
         const cert = await readCert(form.certSourceServerName, form.sniDomain)
         if (!cert.crt || !cert.key) {
-          setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Certificate not found on ${form.certSourceServerName}. Make sure xray-sni is running there.` }])
+          setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Сертификат не найден на ${form.certSourceServerName}. Проверь, что xray-sni там запущен.` }])
           setRunning(false)
           setFetchingCert(false)
           return
@@ -153,7 +153,7 @@ function NodeSetupWizard() {
         if (cert.json) envVars.CERT_JSON_B64 = cert.json
         setOutput((p) => [...p, { type: 'stdout', data: `[INFO] Certificate fetched OK (crt=${cert.crt!.length} chars).` }])
       } catch (e: any) {
-        setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Failed to fetch cert: ${e?.message}` }])
+        setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Не удалось получить сертификат: ${e?.message}` }])
         setRunning(false)
         setFetchingCert(false)
         return
@@ -176,25 +176,25 @@ function NodeSetupWizard() {
     })
     socket.on('done', async () => {
       if (exitCodeRef.current !== null && exitCodeRef.current !== 0) {
-        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] Setup exited with code ${exitCodeRef.current}; DNS auto-add skipped.` }])
+        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] Установка завершилась с кодом ${exitCodeRef.current}; авто-добавление DNS пропущено.` }])
       } else if (selectedDnsZone) {
-        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Adding ${form.serverName} to DNS zone ${selectedDnsZone.fqdn}...` }])
+        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Добавляем ${form.serverName} в DNS-зону ${selectedDnsZone.fqdn}...` }])
         try {
           await addServerToCloudflareZone(form.serverName, selectedDnsZone.domain, selectedDnsZone.name)
-          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS zone updated: ${selectedDnsZone.fqdn}` }])
+          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS-зона обновлена: ${selectedDnsZone.fqdn}` }])
         } catch (e: any) {
-          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Failed to update DNS zone: ${e?.message ?? e}` }])
+          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Не удалось обновить DNS-зону: ${e?.message ?? e}` }])
         }
       } else if (missingDnsZone && form.createMissingDnsZone) {
-        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Creating DNS zone ${missingDnsZone.fqdn} in hit monitoring...` }])
+        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Создаем DNS-зону ${missingDnsZone.fqdn} в hit monitoring...` }])
         try {
           await addServerToCloudflareZone(form.serverName, missingDnsZone.domain, missingDnsZone.zoneName)
-          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS zone created: ${missingDnsZone.fqdn}` }])
+          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS-зона создана: ${missingDnsZone.fqdn}` }])
         } catch (e: any) {
-          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Failed to create DNS zone: ${e?.message ?? e}` }])
+          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Не удалось создать DNS-зону: ${e?.message ?? e}` }])
         }
       } else {
-        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] No matching DNS zone found for SNI ${form.sniDomain}. DNS auto-add skipped.` }])
+        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] Для SNI ${form.sniDomain} не найдена DNS-зона. Авто-добавление DNS пропущено.` }])
       }
       setRunning(false)
       socket.disconnect()
@@ -212,7 +212,7 @@ function NodeSetupWizard() {
   const stepContent = [
     // Step 0: Server
     <div key="server" className="space-y-3">
-      <label className="text-sm font-medium">Select server</label>
+      <label className="text-sm font-medium">Выбор сервера</label>
       <Select value={form.serverName} onChange={(e) => set('serverName', e.target.value)}>
         <option value="">— choose —</option>
         {allServers.map((s: any) => (
@@ -276,12 +276,12 @@ function NodeSetupWizard() {
         {form.sniDomain && (
           <p className={`mt-2 text-xs ${selectedDnsZone ? 'text-emerald-400' : 'text-yellow-400'}`}>
             {selectedDnsZone
-              ? `DNS auto-add: ${selectedDnsZone.fqdn} (${selectedDnsZone.ips.length} IPs now)`
+              ? `DNS авто-добавление: ${selectedDnsZone.fqdn} (сейчас ${selectedDnsZone.ips.length} IP)`
               : missingDnsZone
                 ? missingDnsZone.domainExists
-                  ? `DNS warning: subdomain ${missingDnsZone.zoneName} does not exist for ${missingDnsZone.domain}`
-                  : `DNS warning: ${missingDnsZone.domain} is not in hit config; a new domain block can be created`
-                : 'DNS warning: enter a subdomain like name.example.com'}
+                  ? `DNS предупреждение: поддомена ${missingDnsZone.zoneName} нет у домена ${missingDnsZone.domain}`
+                  : `DNS предупреждение: домена ${missingDnsZone.domain} нет в hit config, можно создать новый блок`
+                : 'DNS предупреждение: введи поддомен в формате name.example.com'}
           </p>
         )}
       </div>
@@ -296,11 +296,11 @@ function NodeSetupWizard() {
               onChange={(e) => set('createMissingDnsZone', e.target.checked)}
             />
             <label htmlFor="createMissingDnsZone" className="text-sm">
-              Create new hit monitoring block for <strong>{missingDnsZone.fqdn}</strong> after successful setup
+              Создать новый блок hit monitoring для <strong>{missingDnsZone.fqdn}</strong> после успешной установки
             </label>
           </div>
           <p className="mt-2 text-xs text-yellow-300">
-            Check the spelling carefully. This will create <strong>{missingDnsZone.domain}</strong> / <strong>{missingDnsZone.zoneName}</strong> in hit config if it is missing.
+            Внимательно проверь написание. Если блока нет, будет создано: <strong>{missingDnsZone.domain}</strong> / <strong>{missingDnsZone.zoneName}</strong>.
           </p>
         </div>
       )}
@@ -349,8 +349,8 @@ function NodeSetupWizard() {
         {selectedDnsZone
           ? selectedDnsZone.fqdn
           : missingDnsZone && form.createMissingDnsZone
-            ? `will create ${missingDnsZone.fqdn}`
-            : 'not found, will not auto-add'}
+            ? `будет создана ${missingDnsZone.fqdn}`
+            : 'не найдена, авто-добавления не будет'}
       </p>
       <p><span className="text-muted-foreground">Copy cert:</span> {form.copyCert ? `yes (from ${form.certSourceServerName}${selectedCertSource ? ` / ${selectedCertSource.ip}` : ''})` : 'no'}</p>
       <p><span className="text-muted-foreground">Panel API IP:</span> {form.panelApiIp}</p>
@@ -397,7 +397,7 @@ function NodeSetupWizard() {
               </Button>
             ) : (
               <Button onClick={launch} disabled={!canLaunch || fetchingCert}>
-                {fetchingCert ? 'Fetching cert…' : 'Launch Setup'}
+                {fetchingCert ? 'Получаем сертификат...' : 'Запустить установку'}
               </Button>
             )}
           </div>

@@ -55,7 +55,7 @@ function ServerSelector({
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <p className="font-semibold text-sm">Select servers</p>
+      <p className="font-semibold text-sm">Выбор серверов</p>
       <div className="flex gap-2 flex-wrap">
         {(['all', 'country', 'custom'] as const).map((mode) => (
           <button
@@ -65,7 +65,7 @@ function ServerSelector({
               selectMode === mode ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'
             }`}
           >
-            {mode === 'all' ? `All (${allServers.length})` : mode === 'country' ? 'By country' : 'Custom'}
+            {mode === 'all' ? `Все (${allServers.length})` : mode === 'country' ? 'По странам' : 'Вручную'}
           </button>
         ))}
       </div>
@@ -90,10 +90,10 @@ function ServerSelector({
         <div className="space-y-2">
           <div className="flex gap-2">
             <button onClick={() => setCustomSelected(new Set(allServers.map((s) => s.name)))} className="text-xs text-primary hover:underline">
-              Select all
+              Выбрать все
             </button>
             <button onClick={() => setCustomSelected(new Set())} className="text-xs text-muted-foreground hover:underline">
-              Clear
+              Очистить
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 max-h-52 overflow-y-auto pr-1">
@@ -191,7 +191,7 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
           ))}
         </div>
         <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Custom command</p>
+          <p className="text-xs text-muted-foreground">Своя команда</p>
           <div className="flex gap-2">
             <input
               value={command}
@@ -222,7 +222,7 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
           onClick={run}
           disabled={!command.trim() || running || targetServers.length === 0}
         >
-          {running ? `Running on ${targetServers.length} servers…` : `Run on ${targetServers.length} server${targetServers.length !== 1 ? 's' : ''}`}
+          {running ? `Выполняется на ${targetServers.length} серверах...` : `Запустить на ${targetServers.length} серверах`}
         </Button>
         {command && <Badge variant="secondary" className="font-mono">{command}</Badge>}
         {running && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
@@ -233,8 +233,8 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
         <section className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium">Results: {results.length}</span>
-            <span className="text-sm text-green-400">✓ {okCount} ok</span>
-            <span className="text-sm text-red-400">✗ {failCount} failed</span>
+            <span className="text-sm text-green-400">✓ {okCount} успешно</span>
+            <span className="text-sm text-red-400">✗ {failCount} с ошибкой</span>
             <div className="flex gap-1.5 ml-auto">
               {(['all', 'ok', 'fail'] as const).map((f) => (
                 <button
@@ -244,7 +244,7 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
                     filter === f ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
                   }`}
                 >
-                  {f === 'all' ? `All (${results.length})` : f === 'ok' ? `OK (${okCount})` : `Failed (${failCount})`}
+                  {f === 'all' ? `Все (${results.length})` : f === 'ok' ? `Успешно (${okCount})` : `Ошибки (${failCount})`}
                 </button>
               ))}
             </div>
@@ -365,7 +365,7 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <p className="font-semibold text-sm">1. Select plugin</p>
+        <p className="font-semibold text-sm">1. Выбор плагина</p>
         {categories.map((cat) => (
           <div key={cat}>
             <p className="text-xs uppercase text-muted-foreground mb-1">{cat}</p>
@@ -405,7 +405,7 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
 
       <div className="flex items-center gap-3 flex-wrap">
         <Button onClick={run} disabled={!selectedPlugin || running || targetServers.length === 0}>
-          {running ? `Running… ${finished}/${counts.total}` : `Run on ${targetServers.length} server${targetServers.length !== 1 ? 's' : ''}`}
+          {running ? `Выполняется... ${finished}/${counts.total}` : `Запустить на ${targetServers.length} серверах`}
         </Button>
         {selectedPlugin && <Badge variant="secondary">{selectedPlugin.title}</Badge>}
         {running && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
@@ -490,10 +490,10 @@ export default function BulkPage() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center gap-4">
-        <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
-        <h1 className="font-bold text-lg">Bulk Operations</h1>
+        <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Флот</Link>
+        <h1 className="font-bold text-lg">Массовые операции</h1>
         <div className="flex gap-1 ml-4">
-          {([['ufw', '🛡 UFW Rules'], ['plugins', '⚡ Plugins']] as const).map(([t, label]) => (
+          {([['ufw', '🛡 UFW правила'], ['plugins', '⚡ Плагины']] as const).map(([t, label]) => (
             <button
               key={t}
               onClick={() => setTab(t)}

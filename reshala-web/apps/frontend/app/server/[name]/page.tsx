@@ -149,23 +149,23 @@ export default function ServerPage({ params }: Props) {
     const target = parseDnsTarget(dnsTarget)
     const zone = dnsData?.domains.find((item) => dnsValue(item) === dnsTarget)
     if (!target || !zone) return
-    const ok = window.confirm(`Change xray-sni on "${name}" to ${zone.fqdn} and move DNS membership?`)
+    const ok = window.confirm(`Сменить xray-sni на "${name}" на ${zone.fqdn} и перенести DNS-привязку?`)
     if (!ok) return
 
     setSniBusy(true)
     setDnsMessage(null)
     try {
       const ssh = await setServerXraySni(name, zone.fqdn)
-      if (!ssh.ok) throw new Error(ssh.output || 'Failed to update xray-sni')
+      if (!ssh.ok) throw new Error(ssh.output || 'Не удалось обновить xray-sni')
 
       await addServerToCloudflareZone(name, target.domain, target.zoneName)
       const previous = dnsData?.matches.filter((item) => item.fqdn !== zone.fqdn) ?? []
       await Promise.all(previous.map((item) => removeServerFromCloudflareZone(name, item.domain, item.name)))
       await qc.invalidateQueries({ queryKey: ['cloudflare-nodes', name] })
       setDnsTarget('')
-      setDnsMessage(`Node SNI changed to ${zone.fqdn}`)
+      setDnsMessage(`SNI ноды изменен на ${zone.fqdn}`)
     } catch (e: any) {
-      setDnsMessage(e?.message ?? 'Failed to change node SNI')
+      setDnsMessage(e?.message ?? 'Не удалось сменить SNI ноды')
     } finally {
       setSniBusy(false)
     }
@@ -257,7 +257,7 @@ export default function ServerPage({ params }: Props) {
                   onChange={(e) => setDnsTarget(e.target.value)}
                   disabled={dnsBusy || sniBusy || dnsData.domains.length === 0}
                 >
-                  <option value="">Select domain zone</option>
+                  <option value="">Выбери DNS-зону</option>
                   {dnsData.domains.map((zone) => (
                     <option key={`${zone.domain}:${zone.name}:${zone.fqdn}`} value={dnsValue(zone)}>
                       {zone.fqdn} ({zone.ips.length} IPs)
@@ -265,7 +265,7 @@ export default function ServerPage({ params }: Props) {
                   ))}
                 </Select>
                 <Button onClick={handleAddDns} disabled={dnsBusy || sniBusy || dnsData.domains.length === 0 || !dnsTarget}>
-                  Add this IP
+                  Добавить IP
                 </Button>
               </div>
               <Button
@@ -273,13 +273,13 @@ export default function ServerPage({ params }: Props) {
                 onClick={handleSetSni}
                 disabled={dnsBusy || sniBusy || dnsData.domains.length === 0 || !dnsTarget}
               >
-                {sniBusy ? 'Changing SNI...' : 'Set node SNI to selected zone'}
+                {sniBusy ? 'Меняем SNI...' : 'Сменить SNI ноды на выбранную зону'}
               </Button>
 
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase text-muted-foreground">Current DNS membership</p>
+                <p className="text-xs font-medium uppercase text-muted-foreground">Текущие DNS-привязки</p>
                 {dnsData.matches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">This server IP is not attached to a monitored DNS zone.</p>
+                  <p className="text-sm text-muted-foreground">IP этого сервера не привязан ни к одной DNS-зоне мониторинга.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {dnsData.matches.map((zone) => (
@@ -293,7 +293,7 @@ export default function ServerPage({ params }: Props) {
                           className="text-muted-foreground hover:text-destructive"
                           onClick={() => handleRemoveDns(zone)}
                           disabled={dnsBusy}
-                          title="Remove this IP from zone"
+                          title="Убрать этот IP из зоны"
                         >
                           x
                         </button>

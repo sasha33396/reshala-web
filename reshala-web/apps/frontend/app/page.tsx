@@ -269,19 +269,19 @@ export default function HomePage() {
               className={`px-3 py-1.5 transition-colors ${groupBy === 'country' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               onClick={() => setGroupBy('country')}
             >
-              By country
+              По странам
             </button>
             <button
               className={`px-3 py-1.5 transition-colors border-l border-border ${groupBy === 'provider' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               onClick={() => setGroupBy('provider')}
             >
-              By host
+              По хостеру
             </button>
             <button
               className={`px-3 py-1.5 transition-colors border-l border-border ${groupBy === 'dns' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               onClick={() => setGroupBy('dns')}
             >
-              By DNS
+              По DNS
             </button>
           </div>
           <Button variant="default" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }} className="gap-2">
@@ -583,7 +583,7 @@ function buildDnsGroups(groups: FleetGroup[], zones: CloudflareNodeZone[]): Flee
 
   const withoutDns = servers.filter((server) => !used.has(server.name))
   if (withoutDns.length > 0) {
-    dnsGroups.push({ country: 'No DNS zone', servers: withoutDns })
+    dnsGroups.push({ country: 'Без DNS-зоны', servers: withoutDns })
   }
 
   return dnsGroups
