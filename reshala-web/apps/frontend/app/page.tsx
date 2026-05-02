@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer, bulkSsh } from '@/lib/api'
+import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer } from '@/lib/api'
 import type { PanelNode, PanelHost } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
@@ -32,47 +32,6 @@ type ProvisionProgress = {
   errors: string[]
 }
 
-type SpeedtestState = {
-  running?: boolean
-  ok?: boolean
-  message?: string
-}
-
-const SPEEDTEST_COMMAND = `
-set -e
-export DEBIAN_FRONTEND=noninteractive
-if ! command -v snap >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1; then
-    apt-get update -qq
-    apt-get install -y snapd
-  else
-    echo "snap is not installed and apt-get is unavailable"
-    exit 1
-  fi
-fi
-if command -v systemctl >/dev/null 2>&1; then
-  systemctl enable --now snapd.socket >/dev/null 2>&1 || true
-  systemctl start snapd.service >/dev/null 2>&1 || true
-fi
-export PATH="$PATH:/snap/bin"
-if ! command -v speedtest >/dev/null 2>&1 && [ -x /snap/bin/speedtest ]; then
-  ln -sf /snap/bin/speedtest /usr/local/bin/speedtest 2>/dev/null || true
-fi
-if ! command -v speedtest >/dev/null 2>&1; then
-  snap install speedtest
-fi
-export PATH="$PATH:/snap/bin"
-SPEEDTEST_BIN="$(command -v speedtest || true)"
-if [ -z "$SPEEDTEST_BIN" ] && [ -x /snap/bin/speedtest ]; then
-  SPEEDTEST_BIN=/snap/bin/speedtest
-fi
-if [ -z "$SPEEDTEST_BIN" ]; then
-  echo "speedtest command was not found after snap install"
-  exit 1
-fi
-"$SPEEDTEST_BIN" --accept-license --accept-gdpr -f json
-`.trim()
-
 export default function HomePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -90,7 +49,6 @@ export default function HomePage() {
   const [showUntracked, setShowUntracked] = useState(false)
   const [deletingServer, setDeletingServer] = useState<string | null>(null)
   const [provisionMinimized, setProvisionMinimized] = useState(false)
-  const [speedtests, setSpeedtests] = useState<Record<string, SpeedtestState>>({})
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function startPolling() {
@@ -249,20 +207,6 @@ export default function HomePage() {
     }
   }
 
-  async function handleSpeedtest(name: string) {
-    setSpeedtests((prev) => ({ ...prev, [name]: { running: true, message: 'Preparing snap speedtest...' } }))
-    try {
-      const [res] = await bulkSsh([name], SPEEDTEST_COMMAND)
-      const message = res?.ok ? summarizeSpeedtest(res.output) : (res?.output || 'Speedtest failed')
-      setSpeedtests((prev) => ({ ...prev, [name]: { running: false, ok: Boolean(res?.ok), message } }))
-    } catch (e: any) {
-      setSpeedtests((prev) => ({
-        ...prev,
-        [name]: { running: false, ok: false, message: e?.message ?? 'Speedtest failed' },
-      }))
-    }
-  }
-
   function quickAdd(node: PanelNode) {
     setAddForm({ name: node.name, ip: node.address, password: '', user: 'root', port: '22' })
     setAddResult(null)
@@ -375,8 +319,6 @@ export default function HomePage() {
             hostByIp={hostByIp}
             deletingServer={deletingServer}
             onDeleteServer={handleDeleteServer}
-            speedtests={speedtests}
-            onSpeedtest={handleSpeedtest}
           />
         )}
 
@@ -593,31 +535,6 @@ function FleetSkeleton() {
       ))}
     </div>
   )
-}
-
-function summarizeSpeedtest(output: string): string {
-  const jsonStart = output.indexOf('{')
-  if (jsonStart >= 0) {
-    try {
-      const data = JSON.parse(output.slice(jsonStart))
-      const down = typeof data?.download?.bandwidth === 'number'
-        ? ((data.download.bandwidth * 8) / 1_000_000).toFixed(1)
-        : null
-      const up = typeof data?.upload?.bandwidth === 'number'
-        ? ((data.upload.bandwidth * 8) / 1_000_000).toFixed(1)
-        : null
-      const ping = typeof data?.ping?.latency === 'number'
-        ? data.ping.latency.toFixed(1)
-        : null
-      const parts = [
-        down ? `down ${down} Mbps` : null,
-        up ? `up ${up} Mbps` : null,
-        ping ? `ping ${ping} ms` : null,
-      ].filter(Boolean)
-      if (parts.length) return parts.join(', ')
-    } catch {}
-  }
-  return output.replace(/\s+/g, ' ').trim().slice(0, 180) || 'Speedtest completed'
 }
 
 function UntrackedCard({ node, onAdd }: { node: PanelNode; onAdd: () => void }) {
