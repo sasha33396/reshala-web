@@ -359,6 +359,8 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
   const finished = counts.done + counts.error
   const progress = counts.total > 0 ? Math.round((finished / counts.total) * 100) : 0
   const displayedStates = Array.from(serverStates.entries()).filter(([, s]) => filter === 'all' || s.status === filter)
+  const isSpeedtestPlugin = selectedPlugin?.id.includes('speedtest') || selectedPlugin?.title.toLowerCase().includes('speedtest')
+  const showSpeedtestWarning = isSpeedtestPlugin && targetServers.length > 5
 
   return (
     <div className="space-y-5">
@@ -394,6 +396,12 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
         customSelected={customSelected}
         setCustomSelected={setCustomSelected}
       />
+
+      {showSpeedtestWarning && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+          Speedtest creates real network load. It is not recommended to run it on more than 5 servers at once.
+        </div>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <Button onClick={run} disabled={!selectedPlugin || running || targetServers.length === 0}>
