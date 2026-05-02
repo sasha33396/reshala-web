@@ -14,6 +14,8 @@ interface OutputLine {
   data: string
 }
 
+type LineTone = 'ok' | 'attention' | 'error' | 'muted'
+
 interface Props {
   serverName?: string
 }
@@ -46,25 +48,27 @@ export function PluginRunner({ serverName }: Props) {
     const payload: PluginRunPayload = { pluginId: selected.id, serverName }
 
     socket.on('connect', () => {
-      setOutput((prev) => [...prev, { server: '', type: 'stdout', data: '✓ connected, running…' }])
+      setOutput((prev) => [...prev, { server: '', type: 'stdout', data: 'connected, running...' }])
       socket.emit('run', payload)
     })
     socket.on('connect_error', (err) => {
-      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `connect_error: ${err.message}` }])
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `connect error: ${err.message}` }])
       setRunning(false)
     })
     socket.on('disconnect', (reason) => {
-      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `disconnected: ${reason}` }])
+      if (reason !== 'io client disconnect') {
+        setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `disconnected: ${reason}` }])
+      }
     })
 
     socket.connect()
 
     socket.on('output', (line: OutputLine) => setOutput((prev) => [...prev, line]))
     socket.on('server-start', ({ server }: { server: string }) =>
-      setOutput((prev) => [...prev, { server, type: 'stdout', data: `\n▶ ${server}` }]),
+      setOutput((prev) => [...prev, { server, type: 'stdout', data: `server: ${server}` }]),
     )
-    socket.on('server-error', ({ server, error }: { server: string; error: string }) =>
-      setOutput((prev) => [...prev, { server, type: 'stderr', data: `✗ ${error}` }]),
+    socket.on('server-error', ({ error }: { server: string; error: string }) =>
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: error }]),
     )
     socket.on('done', () => {
       setRunning(false)
@@ -108,11 +112,11 @@ export function PluginRunner({ serverName }: Props) {
 
       <div className="flex items-center gap-3">
         <Button onClick={run} disabled={!selected || running} size="sm">
-          {running ? 'Running…' : 'Run'}
+          {running ? 'Running...' : 'Run'}
         </Button>
         {selected && <Badge variant="secondary">{selected.title}</Badge>}
         {running && (
-          <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
         )}
       </div>
 
@@ -121,16 +125,65 @@ export function PluginRunner({ serverName }: Props) {
           ref={outputRef}
           className="bg-black rounded p-3 h-64 overflow-y-auto font-mono text-xs"
         >
-          {output.map((line, i) => (
-            <div
-              key={i}
-              className={line.type === 'stderr' ? 'text-red-400' : 'text-green-300'}
-            >
-              {line.data}
-            </div>
-          ))}
+          {output.map((line, i) => {
+            const text = formatOutputLine(line)
+            if (!text) return null
+            return (
+              <div key={i} className={toneClass(classifyOutputLine(line, text))}>
+                {text}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
   )
+}
+
+function formatOutputLine(line: OutputLine): string {
+  if (line.type === 'exit') {
+    return line.data === '0' ? 'completed successfully' : `completed with errors, exit code ${line.data}`
+  }
+  return line.data
+}
+
+function classifyOutputLine(line: OutputLine, text: string): LineTone {
+  const value = text.toLowerCase()
+  if (line.type === 'stderr') return 'error'
+  if (line.type === 'exit') return line.data === '0' ? 'ok' : 'error'
+  if (
+    value.includes('error') ||
+    value.includes('failed') ||
+    value.includes('not found') ||
+    value.includes('unavailable') ||
+    value.includes('exit code')
+  ) return 'error'
+  if (
+    value.includes('installing') ||
+    value.includes('waiting') ||
+    value.includes('checking') ||
+    value.includes('starting') ||
+    value.includes('warning') ||
+    value.includes('attention')
+  ) return 'attention'
+  if (
+    value.includes('already installed') ||
+    value.includes('completed successfully') ||
+    value.includes('download:') ||
+    value.includes('upload:') ||
+    value.includes('ping:') ||
+    value.includes('result:') ||
+    value.includes('connected, running') ||
+    value.startsWith('server:')
+  ) return 'ok'
+  return 'muted'
+}
+
+function toneClass(tone: LineTone): string {
+  return {
+    ok: 'text-green-300',
+    attention: 'text-yellow-300',
+    error: 'text-red-400',
+    muted: 'text-slate-300',
+  }[tone]
 }

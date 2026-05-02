@@ -106,21 +106,24 @@ main() {
   speedtest_bin="$(find_speedtest_bin)"
   local output_file
   output_file="$(mktemp)"
+  local notice_file
+  notice_file="$(mktemp)"
 
   log "running Ookla speedtest"
-  if "$speedtest_bin" --accept-license --accept-gdpr -f json >"$output_file"; then
+  if "$speedtest_bin" --accept-license --accept-gdpr -f json >"$output_file" 2>"$notice_file"; then
     if ! summarize_json "$output_file"; then
       cat "$output_file"
     fi
   else
     local code=$?
     log "speedtest failed with exit code ${code}"
+    cat "$notice_file" || true
     cat "$output_file" || true
-    rm -f "$output_file"
+    rm -f "$output_file" "$notice_file"
     exit "$code"
   fi
 
-  rm -f "$output_file"
+  rm -f "$output_file" "$notice_file"
 }
 
 main "$@"
