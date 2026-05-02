@@ -1,0 +1,29 @@
+name: Reshala Web
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "reshala-web/**"
+      - ".github/workflows/reshala-web.yml"
+  pull_request:
+    branches: ["main", "dev"]
+    paths:
+      - "reshala-web/**"
+      - ".github/workflows/reshala-web.yml"
+
+jobs:
+  build:
+    name: Type-check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reshala-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --legacy-peer-deps
+      - run: npm run type-check
+      - run: npm run build
