@@ -79,3 +79,22 @@ export interface DockerContainer {
   ports: string
   created: string
 }
+
+export interface CloudflareNodeZone {
+  domain: string
+  name: string
+  fqdn: string
+  ttl: number
+  proxied: boolean
+  ips: string[]
+}
+
+export interface CloudflareNodeConfig {
+  configured: boolean
+  checkInterval: number | null
+  domains: CloudflareNodeZone[]
+}
+
+export interface CloudflareNodeMatch extends CloudflareNodeZone {
+  matchedIp: string
+}

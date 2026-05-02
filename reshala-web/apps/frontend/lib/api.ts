@@ -1,4 +1,4 @@
-import type { Server, FleetGroup, Plugin, MetricData, PanelNode, PanelHost } from '@reshala-web/shared'
+import type { Server, FleetGroup, Plugin, MetricData, PanelNode, PanelHost, CloudflareNodeConfig, CloudflareNodeMatch, CloudflareNodeZone } from '@reshala-web/shared'
 
 const BASE = '/api'
 
@@ -90,6 +90,21 @@ export const updateRemnanode = (name: string) =>
 export const fetchPanelNodes = () => req<PanelNode[]>('/remnawave/nodes')
 export const fetchPanelHosts = () => req<PanelHost[]>('/remnawave/hosts')
 export const fetchPanelStatus = () => req<{ configured: boolean }>('/remnawave/status')
+
+// Cloudflare DNS node monitor
+export const fetchCloudflareNodesConfig = () => req<CloudflareNodeConfig>('/cloudflare-nodes/config')
+export const fetchServerCloudflareNodes = (name: string) =>
+  req<{ configured: boolean; matches: CloudflareNodeMatch[]; domains: CloudflareNodeZone[] }>(`/cloudflare-nodes/server/${name}`)
+export const addServerToCloudflareZone = (name: string, domain: string, zoneName: string) =>
+  req<{ configured: boolean; matches: CloudflareNodeMatch[]; domains: CloudflareNodeZone[] }>(`/cloudflare-nodes/server/${name}/add`, {
+    method: 'POST',
+    body: JSON.stringify({ domain, zoneName }),
+  })
+export const removeServerFromCloudflareZone = (name: string, domain: string, zoneName: string) =>
+  req<{ configured: boolean; matches: CloudflareNodeMatch[]; domains: CloudflareNodeZone[] }>(`/cloudflare-nodes/server/${name}/remove`, {
+    method: 'POST',
+    body: JSON.stringify({ domain, zoneName }),
+  })
 
 // Analytics
 export const fetchFleetAnalytics = () => req<any>('/metrics/fleet/analytics')

@@ -3,14 +3,24 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { fetchServer, fetchMetrics, provisionServer, updateServer, fetchPanelNodes } from '@/lib/api'
-import type { PanelNode } from '@reshala-web/shared'
+import {
+  addServerToCloudflareZone,
+  fetchServer,
+  fetchMetrics,
+  fetchPanelNodes,
+  fetchServerCloudflareNodes,
+  provisionServer,
+  removeServerFromCloudflareZone,
+  updateServer,
+} from '@/lib/api'
+import type { CloudflareNodeZone, PanelNode } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { MetricsChart } from '@/components/metrics-chart'
 import { PluginRunner } from '@/components/plugin-runner'
 import { StatusIndicator } from '@/components/status-indicator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
 interface Props {
@@ -27,6 +37,9 @@ export default function ServerPage({ params }: Props) {
   const [editForm, setEditForm] = useState({ ip: '', port: '', user: '', sudoPass: '' })
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
+  const [dnsTarget, setDnsTarget] = useState('')
+  const [dnsBusy, setDnsBusy] = useState(false)
+  const [dnsMessage, setDnsMessage] = useState<string | null>(null)
 
   function openEdit(s: any) {
     setEditForm({ ip: s.ip, port: String(s.port), user: s.user, sudoPass: s.sudoPass ?? '' })
@@ -91,6 +104,44 @@ export default function ServerPage({ params }: Props) {
   const panelNode: PanelNode | undefined = server
     ? panelNodes.find((n: PanelNode) => n.address === server.ip)
     : undefined
+
+  const { data: dnsData } = useQuery({
+    queryKey: ['cloudflare-nodes', name],
+    queryFn: () => fetchServerCloudflareNodes(name),
+    enabled: !!server,
+    retry: false,
+    staleTime: 30_000,
+  })
+
+  async function handleAddDns() {
+    const target = parseDnsTarget(dnsTarget)
+    if (!target) return
+    setDnsBusy(true)
+    setDnsMessage(null)
+    try {
+      await addServerToCloudflareZone(name, target.domain, target.zoneName)
+      await qc.invalidateQueries({ queryKey: ['cloudflare-nodes', name] })
+      setDnsMessage('Added to DNS zone')
+    } catch (e: any) {
+      setDnsMessage(e?.message ?? 'Failed to add DNS record')
+    } finally {
+      setDnsBusy(false)
+    }
+  }
+
+  async function handleRemoveDns(zone: CloudflareNodeZone) {
+    setDnsBusy(true)
+    setDnsMessage(null)
+    try {
+      await removeServerFromCloudflareZone(name, zone.domain, zone.name)
+      await qc.invalidateQueries({ queryKey: ['cloudflare-nodes', name] })
+      setDnsMessage('Removed from DNS zone')
+    } catch (e: any) {
+      setDnsMessage(e?.message ?? 'Failed to remove DNS record')
+    } finally {
+      setDnsBusy(false)
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -161,6 +212,66 @@ export default function ServerPage({ params }: Props) {
               </div>
               {panelNode.lastStatusMessage && !panelNode.isConnected && (
                 <p className="mt-3 text-xs text-destructive font-mono break-all">{panelNode.lastStatusMessage}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {dnsData?.configured && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Cloudflare DNS</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                <Select
+                  value={dnsTarget}
+                  onChange={(e) => setDnsTarget(e.target.value)}
+                  disabled={dnsBusy || dnsData.domains.length === 0}
+                >
+                  <option value="">Select domain zone</option>
+                  {dnsData.domains.map((zone) => (
+                    <option key={`${zone.domain}:${zone.name}:${zone.fqdn}`} value={dnsValue(zone)}>
+                      {zone.fqdn} ({zone.ips.length} IPs)
+                    </option>
+                  ))}
+                </Select>
+                <Button onClick={handleAddDns} disabled={dnsBusy || dnsData.domains.length === 0 || !dnsTarget}>
+                  Add this IP
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase text-muted-foreground">Current DNS membership</p>
+                {dnsData.matches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">This server IP is not attached to a monitored DNS zone.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {dnsData.matches.map((zone) => (
+                      <span
+                        key={`${zone.domain}:${zone.name}`}
+                        className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300"
+                      >
+                        {zone.fqdn}
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveDns(zone)}
+                          disabled={dnsBusy}
+                          title="Remove this IP from zone"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {dnsMessage && (
+                <p className={`text-sm ${dnsMessage.startsWith('Failed') ? 'text-destructive' : 'text-emerald-400'}`}>
+                  {dnsMessage}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -298,4 +409,14 @@ function formatUptime(s: number): string {
   const h = Math.floor((s % 86400) / 3600)
   if (d > 0) return `${d}d ${h}h`
   return `${h}h ${Math.floor((s % 3600) / 60)}m`
+}
+
+function dnsValue(zone: CloudflareNodeZone): string {
+  return `${zone.domain}||${zone.name}`
+}
+
+function parseDnsTarget(value: string): { domain: string; zoneName: string } | null {
+  const [domain, zoneName] = value.split('||')
+  if (!domain || !zoneName) return null
+  return { domain, zoneName }
 }

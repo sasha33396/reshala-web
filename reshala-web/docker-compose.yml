@@ -54,6 +54,8 @@ services:
       - SOCKS5_PASS=${SOCKS5_PASS:-}
       - REMNAWAVE_URL=${REMNAWAVE_URL:-}
       - REMNAWAVE_API_KEY=${REMNAWAVE_API_KEY:-}
+      - CF_NODES_API_URL=${CF_NODES_API_URL:-}
+      - CF_NODES_API_TOKEN=${CF_NODES_API_TOKEN:-}
       - DATA_DIR=/app/data
     expose:
       - "3001"
