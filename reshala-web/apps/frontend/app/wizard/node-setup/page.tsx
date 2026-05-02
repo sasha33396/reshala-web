@@ -1,10 +1,10 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { fetchFleet, readCert, fetchPanelHosts } from '@/lib/api'
-import type { PanelHost } from '@reshala-web/shared'
+import { addServerToCloudflareZone, fetchCloudflareNodesConfig, fetchFleet, readCert, fetchPanelHosts } from '@/lib/api'
+import type { CloudflareNodeZone, PanelHost } from '@reshala-web/shared'
 import { createPluginsSocket } from '@/lib/socket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +35,12 @@ export default function NodeSetupPage() {
   )
 }
 
+function findDnsZone(zones: CloudflareNodeZone[], sniDomain: string): CloudflareNodeZone | null {
+  const normalized = sniDomain.trim().toLowerCase()
+  if (!normalized) return null
+  return zones.find((zone) => zone.fqdn.toLowerCase() === normalized) ?? null
+}
+
 function NodeSetupWizard() {
   const searchParams = useSearchParams()
   const [step, setStep] = useState(0)
@@ -55,6 +61,7 @@ function NodeSetupWizard() {
   const [output, setOutput] = useState<{ type: string; data: string }[]>([])
   const outputRef = useRef<HTMLDivElement>(null)
   const socketRef = useRef<ReturnType<typeof createPluginsSocket> | null>(null)
+  const exitCodeRef = useRef<number | null>(null)
 
   const { data: groups = [] } = useQuery({ queryKey: ['fleet'], queryFn: () => fetchFleet() })
   const allServers = groups.flatMap((g: any) => g.servers)
@@ -67,6 +74,14 @@ function NodeSetupWizard() {
     staleTime: 60_000,
   })
 
+  const { data: dnsConfig } = useQuery({
+    queryKey: ['cloudflare-nodes-config'],
+    queryFn: fetchCloudflareNodesConfig,
+    retry: false,
+    staleTime: 30_000,
+  })
+  const selectedDnsZone = findDnsZone(dnsConfig?.domains ?? [], form.sniDomain)
+
   useEffect(() => {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight
   }, [output])
@@ -77,6 +92,7 @@ function NodeSetupWizard() {
 
   async function launch() {
     setRunning(true)
+    exitCodeRef.current = null
     setOutput([])
 
     const envVars: Record<string, string> = {
@@ -124,10 +140,27 @@ function NodeSetupWizard() {
     }
 
     socket.on('connect', () => socket.emit('run', payload))
-    socket.on('output', (line: { type: string; data: string }) =>
-      setOutput((prev) => [...prev, line]),
-    )
-    socket.on('done', () => { setRunning(false); socket.disconnect() })
+    socket.on('output', (line: { type: string; data: string }) => {
+      if (line.type === 'exit') exitCodeRef.current = Number(line.data)
+      setOutput((prev) => [...prev, line])
+    })
+    socket.on('done', async () => {
+      if (exitCodeRef.current !== null && exitCodeRef.current !== 0) {
+        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] Setup exited with code ${exitCodeRef.current}; DNS auto-add skipped.` }])
+      } else if (selectedDnsZone) {
+        setOutput((prev) => [...prev, { type: 'stdout', data: `[INFO] Adding ${form.serverName} to DNS zone ${selectedDnsZone.fqdn}...` }])
+        try {
+          await addServerToCloudflareZone(form.serverName, selectedDnsZone.domain, selectedDnsZone.name)
+          setOutput((prev) => [...prev, { type: 'stdout', data: `[OK] DNS zone updated: ${selectedDnsZone.fqdn}` }])
+        } catch (e: any) {
+          setOutput((prev) => [...prev, { type: 'stderr', data: `[ERROR] Failed to update DNS zone: ${e?.message ?? e}` }])
+        }
+      } else {
+        setOutput((prev) => [...prev, { type: 'stderr', data: `[WARN] No matching DNS zone found for SNI ${form.sniDomain}. Add it manually in Cloudflare DNS block.` }])
+      }
+      setRunning(false)
+      socket.disconnect()
+    })
     socket.on('error', (msg: unknown) => {
       const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
       setOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${text}` }])
@@ -202,6 +235,13 @@ function NodeSetupWizard() {
           value={form.sniDomain}
           onChange={(e) => set('sniDomain', e.target.value)}
         />
+        {form.sniDomain && (
+          <p className={`mt-2 text-xs ${selectedDnsZone ? 'text-emerald-400' : 'text-yellow-400'}`}>
+            {selectedDnsZone
+              ? `DNS auto-add: ${selectedDnsZone.fqdn} (${selectedDnsZone.ips.length} IPs now)`
+              : 'DNS auto-add: no matching hit monitoring zone for this SNI'}
+          </p>
+        )}
       </div>
       <div>
         <label className="text-sm font-medium">Cloudflare API Token</label>
@@ -243,6 +283,7 @@ function NodeSetupWizard() {
     <div key="confirm" className="space-y-2 text-sm">
       <p><span className="text-muted-foreground">Server:</span> <strong>{form.serverName}</strong></p>
       <p><span className="text-muted-foreground">SNI Domain:</span> {form.sniDomain}</p>
+      <p><span className="text-muted-foreground">DNS zone:</span> {selectedDnsZone ? selectedDnsZone.fqdn : 'not found, will not auto-add'}</p>
       <p><span className="text-muted-foreground">Copy cert:</span> {form.copyCert ? `yes (from ${form.certSourceServerName}${selectedCertSource ? ` / ${selectedCertSource.ip}` : ''})` : 'no'}</p>
       <p><span className="text-muted-foreground">Panel API IP:</span> {form.panelApiIp}</p>
       <p><span className="text-muted-foreground">Metrics IP:</span> {form.metricsIp}</p>
