@@ -45,16 +45,24 @@ function findDnsZone(zones: CloudflareNodeZone[], sniDomain: string): Cloudflare
 function findMissingDnsZone(
   zones: CloudflareNodeZone[],
   sniDomain: string,
-): { domain: string; zoneName: string; fqdn: string } | null {
+): { domain: string; zoneName: string; fqdn: string; domainExists: boolean } | null {
   const normalized = sniDomain.trim().toLowerCase()
   if (!normalized) return null
   const domains = Array.from(new Set(zones.map((zone) => zone.domain.toLowerCase())))
     .sort((a, b) => b.length - a.length)
-  const domain = domains.find((item) => normalized === item || normalized.endsWith(`.${item}`))
-  if (!domain || normalized === domain) return null
-  const zoneName = normalized.slice(0, -(domain.length + 1))
+  const existingDomain = domains.find((item) => normalized === item || normalized.endsWith(`.${item}`))
+  if (existingDomain && normalized !== existingDomain) {
+    const zoneName = normalized.slice(0, -(existingDomain.length + 1))
+    if (!zoneName || zoneName.includes('..')) return null
+    return { domain: existingDomain, zoneName, fqdn: `${zoneName}.${existingDomain}`, domainExists: true }
+  }
+
+  const parts = normalized.split('.').filter(Boolean)
+  if (parts.length < 3) return null
+  const domain = parts.slice(-2).join('.')
+  const zoneName = parts.slice(0, -2).join('.')
   if (!zoneName || zoneName.includes('..')) return null
-  return { domain, zoneName, fqdn: `${zoneName}.${domain}` }
+  return { domain, zoneName, fqdn: `${zoneName}.${domain}`, domainExists: false }
 }
 
 function NodeSetupWizard() {
@@ -270,8 +278,10 @@ function NodeSetupWizard() {
             {selectedDnsZone
               ? `DNS auto-add: ${selectedDnsZone.fqdn} (${selectedDnsZone.ips.length} IPs now)`
               : missingDnsZone
-                ? `DNS warning: subdomain ${missingDnsZone.zoneName} does not exist for ${missingDnsZone.domain}`
-                : 'DNS warning: base domain was not found in hit monitoring config'}
+                ? missingDnsZone.domainExists
+                  ? `DNS warning: subdomain ${missingDnsZone.zoneName} does not exist for ${missingDnsZone.domain}`
+                  : `DNS warning: ${missingDnsZone.domain} is not in hit config; a new domain block can be created`
+                : 'DNS warning: enter a subdomain like name.example.com'}
           </p>
         )}
       </div>
@@ -290,7 +300,7 @@ function NodeSetupWizard() {
             </label>
           </div>
           <p className="mt-2 text-xs text-yellow-300">
-            Check the spelling carefully. A typo will create a separate DNS zone block.
+            Check the spelling carefully. This will create <strong>{missingDnsZone.domain}</strong> / <strong>{missingDnsZone.zoneName}</strong> in hit config if it is missing.
           </p>
         </div>
       )}
