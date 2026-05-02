@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common'
+import { Injectable, NotFoundException, ConflictException, Logger, BadRequestException } from '@nestjs/common'
 import * as fs from 'fs'
 import * as path from 'path'
 import { execFile, execSync } from 'child_process'
@@ -300,6 +300,25 @@ export class FleetService {
       readB64(`${base}/${sniDomain}.json`),
     ])
     return { crt, key, json }
+  }
+
+  async setXraySniDomain(serverName: string, sniDomain: string): Promise<{ ok: boolean; output: string }> {
+    const server = this.getByName(serverName)
+    if (!server) throw new NotFoundException(`Server "${serverName}" not found`)
+    if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(sniDomain)) {
+      throw new BadRequestException('Invalid SNI domain')
+    }
+
+    const escaped = sniDomain.replace(/"/g, '\\"')
+    const command = [
+      'set -e',
+      'cd /root/xray-sni',
+      `if grep -q '^SNI_DOMAIN=' .env; then sed -i 's#^SNI_DOMAIN=.*#SNI_DOMAIN="${escaped}"#' .env; else printf '\\nSNI_DOMAIN="${escaped}"\\n' >> .env; fi`,
+      'docker compose up -d --force-recreate 2>&1',
+      'docker compose ps',
+    ].join(' && ')
+
+    return this.runSshOnServer(server, command)
   }
 
   async bulkSshCommand(

@@ -44,6 +44,12 @@ export class FleetController {
     return this.fleetService.readRemoteCert(serverName, sniDomain)
   }
 
+  @Post(':name/xray-sni')
+  async setXraySni(@Param('name') name: string, @Body() dto: { sniDomain: string }) {
+    if (!dto.sniDomain) throw new BadRequestException('sniDomain required')
+    return this.fleetService.setXraySniDomain(name, dto.sniDomain)
+  }
+
   @Get(':name')
   getOne(@Param('name') name: string) {
     const server = this.fleetService.getByName(name)

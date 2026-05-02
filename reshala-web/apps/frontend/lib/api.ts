@@ -54,6 +54,11 @@ export const readCert = (serverName: string, sniDomain: string) =>
   req<{ crt: string | null; key: string | null; json: string | null }>(
     `/fleet/read-cert?serverName=${encodeURIComponent(serverName)}&sniDomain=${encodeURIComponent(sniDomain)}`,
   )
+export const setServerXraySni = (name: string, sniDomain: string) =>
+  req<{ ok: boolean; output: string }>(`/fleet/${name}/xray-sni`, {
+    method: 'POST',
+    body: JSON.stringify({ sniDomain }),
+  })
 
 export async function importFleet(file: File) {
   const fd = new FormData()
