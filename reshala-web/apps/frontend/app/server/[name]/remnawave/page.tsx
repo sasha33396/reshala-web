@@ -375,21 +375,21 @@ function LogsPanel({
   }, [lines])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm p-4">
-      <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
-        <div className="flex items-center gap-3 mb-3">
-          <h2 className="font-bold text-white">{containerName}</h2>
+    <div className="fixed inset-0 z-50 bg-black/80 p-3 backdrop-blur-sm sm:p-4">
+      <div className="mx-auto flex h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-border bg-black sm:h-[calc(100dvh-2rem)]">
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-black px-4 py-3">
+          <h2 className="min-w-0 flex-1 truncate font-bold text-white">{containerName}</h2>
           {connected && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
           <button
             onClick={onClose}
-            className="ml-auto text-muted-foreground hover:text-white text-sm border border-border rounded px-3 py-1"
+            className="flex-shrink-0 rounded border border-border px-3 py-1 text-sm text-muted-foreground hover:text-white"
           >
             Close
           </button>
         </div>
         <div
           ref={ref}
-          className="flex-1 bg-black border border-border rounded p-3 overflow-y-auto font-mono text-xs"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-black p-3 font-mono text-xs leading-relaxed"
         >
           {lines.length === 0 ? (
             <span className="text-muted-foreground">Connecting…</span>
