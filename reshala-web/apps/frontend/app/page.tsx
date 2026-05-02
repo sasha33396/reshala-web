@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer } from '@/lib/api'
-import type { PanelNode, PanelHost } from '@reshala-web/shared'
+import { fetchCloudflareNodesConfig, fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer } from '@/lib/api'
+import type { CloudflareNodeZone, FleetGroup, PanelNode, PanelHost, Server } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,7 @@ export default function HomePage() {
   const [progress, setProgress] = useState<ProvisionProgress | null>(null)
   const [provisionResult, setProvisionResult] = useState<ProvisionProgress | null>(null)
   const [showErrors, setShowErrors] = useState(false)
-  const [groupBy, setGroupBy] = useState<'country' | 'provider'>('country')
+  const [groupBy, setGroupBy] = useState<'country' | 'provider' | 'dns'>('country')
   const [showUntracked, setShowUntracked] = useState(false)
   const [deletingServer, setDeletingServer] = useState<string | null>(null)
   const [provisionMinimized, setProvisionMinimized] = useState(false)
@@ -110,8 +110,17 @@ export default function HomePage() {
 
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ['fleet', groupBy],
-    queryFn: () => fetchFleet(groupBy),
+    queryFn: () => fetchFleet(groupBy === 'provider' ? 'provider' : 'country'),
     refetchInterval: 30_000,
+  })
+
+  const { data: dnsConfig, isLoading: isDnsLoading } = useQuery({
+    queryKey: ['cloudflare-nodes-config'],
+    queryFn: fetchCloudflareNodesConfig,
+    enabled: groupBy === 'dns',
+    refetchInterval: 60_000,
+    retry: false,
+    staleTime: 30_000,
   })
 
   const { data: statusMap = {} } = useQuery({
@@ -154,18 +163,23 @@ export default function HomePage() {
     return map
   })()
 
+  const displayGroups = groupBy === 'dns'
+    ? buildDnsGroups(groups, dnsConfig?.domains ?? [])
+    : groups
+
   const filtered = search.trim()
-    ? groups
+    ? displayGroups
         .map((g) => ({
           ...g,
           servers: g.servers.filter(
             (s) =>
               s.name.toLowerCase().includes(search.toLowerCase()) ||
-              s.ip.includes(search),
+              s.ip.includes(search) ||
+              g.country.toLowerCase().includes(search.toLowerCase()),
           ),
         }))
         .filter((g) => g.servers.length > 0)
-    : groups
+    : displayGroups
 
   const totalOnline = Object.values(statusMap).filter(Boolean).length
   const totalServers = groups.reduce((n, g) => n + g.servers.length, 0)
@@ -263,6 +277,12 @@ export default function HomePage() {
             >
               By host
             </button>
+            <button
+              className={`px-3 py-1.5 transition-colors border-l border-border ${groupBy === 'dns' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setGroupBy('dns')}
+            >
+              By DNS
+            </button>
           </div>
           <Button variant="default" size="sm" onClick={() => { setShowAdd(true); setAddResult(null) }} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -309,7 +329,7 @@ export default function HomePage() {
           <StatPill label="Panel nodes" value={panelConnected} tone="muted" />
           <StatPill label="Users" value={panelUsers} tone="muted" />
         </div>
-        {isLoading ? (
+        {isLoading || (groupBy === 'dns' && isDnsLoading) ? (
           <FleetSkeleton />
         ) : (
           <FleetGrid
@@ -535,6 +555,38 @@ function FleetSkeleton() {
       ))}
     </div>
   )
+}
+
+function buildDnsGroups(groups: FleetGroup[], zones: CloudflareNodeZone[]): FleetGroup[] {
+  const servers = groups.flatMap((group) => group.servers)
+  const byIp = new Map<string, Server[]>()
+  for (const server of servers) {
+    const list = byIp.get(server.ip) ?? []
+    list.push(server)
+    byIp.set(server.ip, list)
+  }
+
+  const used = new Set<string>()
+  const dnsGroups: FleetGroup[] = zones
+    .map((zone) => {
+      const seen = new Set<string>()
+      const zoneServers = zone.ips.flatMap((ip) => byIp.get(ip) ?? []).filter((server) => {
+        if (seen.has(server.name)) return false
+        seen.add(server.name)
+        used.add(server.name)
+        return true
+      })
+      return { country: zone.fqdn, servers: zoneServers }
+    })
+    .filter((group) => group.servers.length > 0)
+    .sort((a, b) => a.country.localeCompare(b.country))
+
+  const withoutDns = servers.filter((server) => !used.has(server.name))
+  if (withoutDns.length > 0) {
+    dnsGroups.push({ country: 'No DNS zone', servers: withoutDns })
+  }
+
+  return dnsGroups
 }
 
 function UntrackedCard({ node, onAdd }: { node: PanelNode; onAdd: () => void }) {
