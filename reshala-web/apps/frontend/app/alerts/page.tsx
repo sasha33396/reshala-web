@@ -74,11 +74,14 @@ export default function AlertsPage() {
   }
 
   async function handleTest() {
+    if (!effectiveForm) return
     setTesting(true)
     setMsg(null)
     try {
+      await saveAlertsConfig(effectiveForm)
+      qc.invalidateQueries({ queryKey: ['alerts-config'] })
       const res = await sendTestAlert()
-      setMsg({ text: res.ok ? 'Test notification sent ✅' : `Failed: ${res.error}`, ok: res.ok })
+      setMsg({ text: res.ok ? 'Тестовое уведомление отправлено' : `Ошибка: ${res.error}`, ok: res.ok })
     } catch (e: any) {
       setMsg({ text: e?.message ?? t('common.error'), ok: false })
     } finally {
@@ -220,13 +223,15 @@ export default function AlertsPage() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">{t('alerts.chatId')}</label>
-              <Input placeholder="-100123456789" value={f.telegramChatId}
+              <Input placeholder="-100123456789 или 768263638" value={f.telegramChatId}
                 onChange={(e) => setField('telegramChatId', e.target.value)} />
             </div>
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
               {testing ? t('alerts.sending') : t('alerts.sendTest')}
             </Button>
-            <p className="text-xs text-muted-foreground">{t('alerts.telegramHint')}</p>
+            <p className="text-xs text-muted-foreground">
+              Для группы укажи ID вида -100..., для личных сообщений укажи ID админ-пользователя. Пользователь должен сначала открыть бота и нажать Start.
+            </p>
           </CardContent>
         </Card>
 
