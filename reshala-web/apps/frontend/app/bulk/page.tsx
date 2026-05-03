@@ -112,7 +112,7 @@ function ServerSelector({
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">{targetServers.length} server{targetServers.length !== 1 ? 's' : ''} selected</p>
+      <p className="text-xs text-muted-foreground">Выбрано серверов: {targetServers.length}</p>
     </section>
   )
 }
@@ -120,16 +120,16 @@ function ServerSelector({
 // ─── UFW tab ──────────────────────────────────────────────────────────────────
 
 const UFW_PRESETS = [
-  { label: 'Allow SSH (22)', cmd: 'ufw allow 22/tcp' },
-  { label: 'Allow HTTP (80)', cmd: 'ufw allow 80/tcp' },
-  { label: 'Allow HTTPS (443)', cmd: 'ufw allow 443/tcp' },
-  { label: 'Allow Node Exporter (9100)', cmd: 'ufw allow 9100/tcp' },
-  { label: 'Allow 8080', cmd: 'ufw allow 8080/tcp' },
-  { label: 'Allow 3000', cmd: 'ufw allow 3000/tcp' },
-  { label: 'UFW Enable', cmd: 'echo y | ufw enable' },
-  { label: 'UFW Status', cmd: 'ufw status verbose' },
-  { label: 'UFW Disable', cmd: 'ufw disable' },
-  { label: 'UFW Reset', cmd: 'echo y | ufw reset' },
+  { label: 'Разрешить SSH (22)', cmd: 'ufw allow 22/tcp' },
+  { label: 'Разрешить HTTP (80)', cmd: 'ufw allow 80/tcp' },
+  { label: 'Разрешить HTTPS (443)', cmd: 'ufw allow 443/tcp' },
+  { label: 'Разрешить Node Exporter (9100)', cmd: 'ufw allow 9100/tcp' },
+  { label: 'Разрешить 8080', cmd: 'ufw allow 8080/tcp' },
+  { label: 'Разрешить 3000', cmd: 'ufw allow 3000/tcp' },
+  { label: 'UFW Включить', cmd: 'echo y | ufw enable' },
+  { label: 'UFW Статус', cmd: 'ufw status verbose' },
+  { label: 'UFW Выключить', cmd: 'ufw disable' },
+  { label: 'UFW Сбросить', cmd: 'echo y | ufw reset' },
 ]
 
 type UfwResult = { name: string; ok: boolean; output: string }
@@ -176,7 +176,7 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
     <div className="space-y-5">
       {/* Presets */}
       <section className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <p className="font-semibold text-sm">1. Select command</p>
+        <p className="font-semibold text-sm">1. Выбор команды</p>
         <div className="flex flex-wrap gap-2">
           {UFW_PRESETS.map((p) => (
             <button
@@ -232,7 +232,7 @@ function UfwTab({ groups, allServers }: { groups: any[]; allServers: any[] }) {
       {results && (
         <section className="space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium">Results: {results.length}</span>
+            <span className="text-sm font-medium">Результаты: {results.length}</span>
             <span className="text-sm text-green-400">✓ {okCount} успешно</span>
             <span className="text-sm text-red-400">✗ {failCount} с ошибкой</span>
             <div className="flex gap-1.5 ml-auto">
@@ -399,7 +399,7 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
 
       {showSpeedtestWarning && (
         <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-          Speedtest creates real network load. It is not recommended to run it on more than 5 servers at once.
+          Speedtest создаёт реальную нагрузку на сеть. Не рекомендуется запускать его более чем на 5 серверах одновременно.
         </div>
       )}
 
@@ -416,17 +416,23 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
           <div className="space-y-1.5">
             <div className="flex items-center gap-4 text-xs">
               <span className="text-muted-foreground font-mono">{progress}%</span>
-              {counts.running > 0 && <span className="text-yellow-400">{counts.running} running</span>}
-              {counts.done > 0 && <span className="text-green-400">{counts.done} done</span>}
-              {counts.error > 0 && <span className="text-red-400">{counts.error} errors</span>}
-              {counts.pending > 0 && <span className="text-muted-foreground">{counts.pending} pending</span>}
+              {counts.running > 0 && <span className="text-yellow-400">{counts.running} выполняется</span>}
+              {counts.done > 0 && <span className="text-green-400">{counts.done} готово</span>}
+              {counts.error > 0 && <span className="text-red-400">{counts.error} ошибок</span>}
+              {counts.pending > 0 && <span className="text-muted-foreground">{counts.pending} в очереди</span>}
             </div>
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
           </div>
           <div className="flex gap-1.5 flex-wrap">
-            {(['all', 'pending', 'running', 'done', 'error'] as const).map((f) => {
+            {([
+              ['all', 'все'],
+              ['pending', 'в очереди'],
+              ['running', 'выполняется'],
+              ['done', 'готово'],
+              ['error', 'ошибки'],
+            ] as const).map(([f, label]) => {
               const cnt = f === 'all' ? counts.total : counts[f as keyof typeof counts]
               return (
                 <button
@@ -436,7 +442,7 @@ function PluginsTab({ groups, allServers, plugins }: { groups: any[]; allServers
                     filter === f ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'
                   }`}
                 >
-                  {f} {cnt > 0 && `(${cnt})`}
+                  {label} {cnt > 0 && `(${cnt})`}
                 </button>
               )
             })}
@@ -465,12 +471,12 @@ function PluginServerCard({ name, state, expanded, onToggle }: { name: string; s
       <button onClick={onToggle} className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/30 text-left transition-colors">
         <span className={`font-mono text-sm w-4 ${color}`}>{icon}</span>
         <span className="text-sm font-medium flex-1">{name}</span>
-        {state.output.length > 0 && <span className="text-xs text-muted-foreground">{state.output.length} lines</span>}
+        {state.output.length > 0 && <span className="text-xs text-muted-foreground">{state.output.length} строк</span>}
         <span className="text-xs text-muted-foreground">{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
         <div ref={outputRef} className="bg-black px-3 py-2 max-h-52 overflow-y-auto font-mono text-xs border-t border-border">
-          {state.output.length === 0 ? <span className="text-muted-foreground">Waiting…</span> : state.output.map((line, i) => (
+          {state.output.length === 0 ? <span className="text-muted-foreground">Ожидаем...</span> : state.output.map((line, i) => (
             <div key={i} className={line.type === 'stderr' ? 'text-red-400' : 'text-green-300'}>{line.data}</div>
           ))}
         </div>

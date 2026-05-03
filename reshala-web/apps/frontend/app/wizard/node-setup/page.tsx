@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import type { PluginRunPayload } from '@reshala-web/shared'
 
-const STEPS = ['Server', 'Remnanode', 'xray-sni', 'UFW rules', 'Confirm'] as const
+const STEPS = ['Сервер', 'Remnanode', 'xray-sni', 'Правила UFW', 'Подтверждение'] as const
 const SETUP_PLUGIN_ID = 'remnawave_setup_full_node'
 
 interface FormState {
@@ -30,7 +30,7 @@ interface FormState {
 
 export default function NodeSetupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Загружаем...</div>}>
       <NodeSetupWizard />
     </Suspense>
   )
@@ -151,7 +151,7 @@ function NodeSetupWizard() {
         envVars.CERT_CRT_B64 = cert.crt
         envVars.CERT_KEY_B64 = cert.key
         if (cert.json) envVars.CERT_JSON_B64 = cert.json
-        setOutput((p) => [...p, { type: 'stdout', data: `[INFO] Certificate fetched OK (crt=${cert.crt!.length} chars).` }])
+        setOutput((p) => [...p, { type: 'stdout', data: `[INFO] Сертификат получен (crt=${cert.crt!.length} символов).` }])
       } catch (e: any) {
         setOutput((p) => [...p, { type: 'stderr', data: `[ERROR] Не удалось получить сертификат: ${e?.message}` }])
         setRunning(false)
@@ -201,7 +201,7 @@ function NodeSetupWizard() {
     })
     socket.on('error', (msg: unknown) => {
       const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
-      setOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${text}` }])
+      setOutput((prev) => [...prev, { type: 'stderr', data: `Ошибка: ${text}` }])
       setRunning(false)
     })
     socket.connect()
@@ -214,7 +214,7 @@ function NodeSetupWizard() {
     <div key="server" className="space-y-3">
       <label className="text-sm font-medium">Выбор сервера</label>
       <Select value={form.serverName} onChange={(e) => set('serverName', e.target.value)}>
-        <option value="">— choose —</option>
+        <option value="">— выбери —</option>
         {allServers.map((s: any) => (
           <option key={s.name} value={s.name}>{s.name} ({s.ip})</option>
         ))}
@@ -228,22 +228,22 @@ function NodeSetupWizard() {
         <Input
           className="mt-1"
           type="password"
-          placeholder="Secret key"
+          placeholder="Секретный ключ"
           value={form.secretKey}
           onChange={(e) => set('secretKey', e.target.value)}
         />
       </div>
       <div className="border-t border-border pt-3">
-        <p className="text-xs text-muted-foreground mb-2">Docker Hub login (to avoid pull rate limits)</p>
+        <p className="text-xs text-muted-foreground mb-2">Логин Docker Hub (чтобы обойти лимиты pull)</p>
         <div className="flex gap-2">
           <Input
-            placeholder="Docker username"
+            placeholder="Логин Docker"
             value={form.dockerUser}
             onChange={(e) => set('dockerUser', e.target.value)}
           />
           <Input
             type="password"
-            placeholder="Docker password"
+            placeholder="Пароль Docker"
             value={form.dockerPass}
             onChange={(e) => set('dockerPass', e.target.value)}
           />
@@ -254,14 +254,14 @@ function NodeSetupWizard() {
     // Step 2: xray-sni
     <div key="sni" className="space-y-3">
       <div>
-        <label className="text-sm font-medium">SNI Domain</label>
+        <label className="text-sm font-medium">SNI домен</label>
         {panelHosts.length > 0 && (
           <Select
             className="mt-1"
             value={panelHosts.some((h) => h.address === form.sniDomain) ? form.sniDomain : ''}
             onChange={(e) => { if (e.target.value) setSniDomain(e.target.value) }}
           >
-            <option value="">— choose from panel hosts —</option>
+            <option value="">— выбери из хостов панели —</option>
             {panelHosts.map((h) => (
               <option key={h.uuid} value={h.address}>{h.remark} ({h.address}:{h.port})</option>
             ))}
@@ -269,7 +269,7 @@ function NodeSetupWizard() {
         )}
         <Input
           className="mt-1"
-          placeholder={panelHosts.length > 0 ? 'or type manually…' : 'sni.example.com'}
+          placeholder={panelHosts.length > 0 ? 'или введи вручную...' : 'sni.example.com'}
           value={form.sniDomain}
           onChange={(e) => setSniDomain(e.target.value)}
         />
@@ -310,19 +310,19 @@ function NodeSetupWizard() {
       </div>
       <div className="flex items-center gap-2">
         <input type="checkbox" id="copyCert" checked={form.copyCert} onChange={(e) => set('copyCert', e.target.checked)} />
-        <label htmlFor="copyCert" className="text-sm">Copy cert from existing node in this group</label>
+        <label htmlFor="copyCert" className="text-sm">Скопировать сертификат с другой ноды в этой группе</label>
       </div>
       {form.copyCert && (
         <div>
-          <label className="text-sm font-medium">Source server</label>
+          <label className="text-sm font-medium">Сервер-источник</label>
           <Select className="mt-1" value={form.certSourceServerName} onChange={(e) => set('certSourceServerName', e.target.value)}>
-            <option value="">— choose server —</option>
+            <option value="">— выбери сервер —</option>
             {certSources.map((s: any) => (
               <option key={s.name} value={s.name}>{s.name} ({s.ip})</option>
             ))}
           </Select>
           <p className="text-xs text-muted-foreground mt-1">
-            Backend will SSH into this server and copy the cert for <strong>{form.sniDomain || '…'}</strong>
+            Бэкенд подключится по SSH к этому серверу и скопирует сертификат для <strong>{form.sniDomain || '…'}</strong>
           </p>
         </div>
       )}
@@ -331,30 +331,30 @@ function NodeSetupWizard() {
     // Step 3: UFW
     <div key="ufw" className="space-y-3">
       <div>
-        <label className="text-sm font-medium">Panel API IP (allowed on port 2222)</label>
+        <label className="text-sm font-medium">IP панели API (разрешён на порту 2222)</label>
         <Input className="mt-1" value={form.panelApiIp} onChange={(e) => set('panelApiIp', e.target.value)} />
       </div>
       <div>
-        <label className="text-sm font-medium">Metrics IP (allowed on 9100 + 9200)</label>
+        <label className="text-sm font-medium">IP для метрик (разрешён на 9100 + 9200)</label>
         <Input className="mt-1" value={form.metricsIp} onChange={(e) => set('metricsIp', e.target.value)} />
       </div>
     </div>,
 
     // Step 4: Confirm
     <div key="confirm" className="space-y-2 text-sm">
-      <p><span className="text-muted-foreground">Server:</span> <strong>{form.serverName}</strong></p>
-      <p><span className="text-muted-foreground">SNI Domain:</span> {form.sniDomain}</p>
+      <p><span className="text-muted-foreground">Сервер:</span> <strong>{form.serverName}</strong></p>
+      <p><span className="text-muted-foreground">SNI домен:</span> {form.sniDomain}</p>
       <p>
-        <span className="text-muted-foreground">DNS zone:</span>{' '}
+        <span className="text-muted-foreground">DNS-зона:</span>{' '}
         {selectedDnsZone
           ? selectedDnsZone.fqdn
           : missingDnsZone && form.createMissingDnsZone
             ? `будет создана ${missingDnsZone.fqdn}`
             : 'не найдена, авто-добавления не будет'}
       </p>
-      <p><span className="text-muted-foreground">Copy cert:</span> {form.copyCert ? `yes (from ${form.certSourceServerName}${selectedCertSource ? ` / ${selectedCertSource.ip}` : ''})` : 'no'}</p>
-      <p><span className="text-muted-foreground">Panel API IP:</span> {form.panelApiIp}</p>
-      <p><span className="text-muted-foreground">Metrics IP:</span> {form.metricsIp}</p>
+      <p><span className="text-muted-foreground">Копировать сертификат:</span> {form.copyCert ? `да (с ${form.certSourceServerName}${selectedCertSource ? ` / ${selectedCertSource.ip}` : ''})` : 'нет'}</p>
+      <p><span className="text-muted-foreground">IP панели API:</span> {form.panelApiIp}</p>
+      <p><span className="text-muted-foreground">IP для метрик:</span> {form.metricsIp}</p>
     </div>,
   ]
 
@@ -364,8 +364,8 @@ function NodeSetupWizard() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center gap-4">
-        <a href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</a>
-        <h1 className="font-bold">Node Setup Wizard</h1>
+        <a href="/" className="text-muted-foreground hover:text-foreground text-sm">← Флот</a>
+        <h1 className="font-bold">Мастер настройки ноды</h1>
       </header>
 
       <div className="p-6 max-w-lg mx-auto">
@@ -389,11 +389,11 @@ function NodeSetupWizard() {
         {!running && (
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0}>
-              Back
+              Назад
             </Button>
             {step < STEPS.length - 1 ? (
               <Button onClick={() => setStep((s) => s + 1)} disabled={step === 0 && !form.serverName}>
-                Next
+                Далее
               </Button>
             ) : (
               <Button onClick={launch} disabled={!canLaunch || fetchingCert}>
@@ -405,13 +405,13 @@ function NodeSetupWizard() {
 
         {(running || output.length > 0) && (
           <div ref={outputRef} className="mt-6 bg-black rounded p-3 h-96 overflow-y-auto font-mono text-xs">
-            {running && output.length === 0 && <p className="text-yellow-400 mb-2">▶ Connecting…</p>}
+            {running && output.length === 0 && <p className="text-yellow-400 mb-2">▶ Подключаемся...</p>}
             {output.map((line, i) => (
               <div key={i} className={line.type === 'stderr' ? 'text-red-400' : 'text-green-300'}>
                 {line.data}
               </div>
             ))}
-            {running && <p className="text-yellow-400 animate-pulse mt-1">▶ Running…</p>}
+            {running && <p className="text-yellow-400 animate-pulse mt-1">▶ Выполняется...</p>}
           </div>
         )}
       </div>

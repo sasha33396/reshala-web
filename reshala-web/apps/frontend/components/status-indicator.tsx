@@ -14,7 +14,7 @@ export function StatusIndicator({ online, size = 'sm' }: Props) {
         'bg-red-500': online === false,
         'bg-muted': online === null,
       })}
-      title={online === null ? 'Unknown' : online ? 'Online' : 'Offline'}
+      title={online === null ? 'Неизвестно' : online ? 'Онлайн' : 'Офлайн'}
     />
   )
 }

@@ -21,7 +21,7 @@ export default function TerminalPage({ params }: Props) {
         <Link href={`/server/${name}`} className="text-muted-foreground hover:text-foreground text-sm">
           ← {name}
         </Link>
-        <h1 className="font-bold">SSH Terminal</h1>
+        <h1 className="font-bold">SSH-терминал</h1>
       </header>
 
       <div className="flex-1 p-4">

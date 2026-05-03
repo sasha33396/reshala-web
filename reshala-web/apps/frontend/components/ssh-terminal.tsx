@@ -40,9 +40,9 @@ export function SshTerminal({ serverName }: Props) {
         socket.emit('connect-ssh', { serverName })
       })
       socket.on('data', (chunk: string) => term.write(chunk))
-      socket.on('close', () => term.write('\r\n\x1b[33m[Connection closed]\x1b[0m\r\n'))
+      socket.on('close', () => term.write('\r\n\x1b[33m[Соединение закрыто]\x1b[0m\r\n'))
       socket.on('error', (msg: string) =>
-        term.write(`\r\n\x1b[31m[Error: ${msg}]\x1b[0m\r\n`),
+        term.write(`\r\n\x1b[31m[Ошибка: ${msg}]\x1b[0m\r\n`),
       )
 
       term.onData((data) => socket.emit('input', data))

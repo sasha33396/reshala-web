@@ -93,20 +93,20 @@ export default function SecurityPage({ params }: Props) {
         <Link href={`/server/${name}`} className="text-muted-foreground hover:text-foreground text-sm">
           ← {name}
         </Link>
-        <h1 className="font-bold text-lg">Security</h1>
+        <h1 className="font-bold text-lg">Безопасность</h1>
       </header>
 
       <div className="p-6 max-w-screen-lg mx-auto space-y-5">
         {/* Status dashboard */}
         <section className="rounded-lg border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="font-semibold text-sm">Security Status</p>
+            <p className="font-semibold text-sm">Статус безопасности</p>
             <button
               onClick={fetchStatus}
               disabled={statusLoading}
               className="text-xs text-primary hover:underline disabled:opacity-50"
             >
-              {statusLoading ? 'Refreshing…' : 'Refresh'}
+              {statusLoading ? 'Обновляем...' : 'Обновить'}
             </button>
           </div>
           {statusLoading && !status && (
@@ -118,9 +118,9 @@ export default function SecurityPage({ params }: Props) {
           )}
           {status && (
             <div className="flex flex-wrap gap-3">
-              <StatusBadge label="SSH Port" value={status.SSH_PORT ?? '?'} neutral />
+              <StatusBadge label="SSH порт" value={status.SSH_PORT ?? '?'} neutral />
               <StatusBadge
-                label="Password Auth"
+                label="Вход по паролю"
                 value={status.PASS_AUTH ?? '?'}
                 ok={status.PASS_AUTH === 'no'}
                 bad={status.PASS_AUTH === 'yes'}
@@ -138,7 +138,7 @@ export default function SecurityPage({ params }: Props) {
                 bad={status.FAIL2BAN_STATUS === 'inactive' || status.FAIL2BAN_STATUS === 'not_installed'}
               />
               <StatusBadge
-                label="Kernel Hardening"
+                label="Защита ядра"
                 value={status.KERNEL_STATUS ?? '?'}
                 ok={status.KERNEL_STATUS === 'applied'}
                 warn={status.KERNEL_STATUS === 'mismatch'}
@@ -251,7 +251,7 @@ function ActionCard({
       {running && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          Running…
+          Выполняется...
         </div>
       )}
     </div>
@@ -262,11 +262,11 @@ function ActionCard({
 function HardenSSHCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) => void } & CardRest) {
   const [port, setPort] = useState('22')
   return (
-    <ActionCard title="Harden SSH" description="Disable password auth, limit root login, set MaxAuthTries=3" {...rest}>
-      <label className="text-xs text-muted-foreground">SSH Port</label>
+    <ActionCard title="Усилить SSH" description="Отключает вход по паролю, ограничивает root-login и ставит MaxAuthTries=3" {...rest}>
+      <label className="text-xs text-muted-foreground">SSH порт</label>
       <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="22" />
       <Button size="sm" onClick={() => onRun({ TARGET_SSH_PORT: port })} disabled={rest.running}>
-        Apply
+        Применить
       </Button>
     </ActionCard>
   )
@@ -276,14 +276,14 @@ function ChangePortCard({ onRun, ...rest }: { onRun: (e: Record<string, string>)
   const [oldPort, setOldPort] = useState('22')
   const [newPort, setNewPort] = useState('')
   return (
-    <ActionCard title="Change SSH Port" description="Safely migrates SSH to a new port with UFW rule update and rollback on failure" {...rest}>
+    <ActionCard title="Сменить SSH порт" description="Безопасно переносит SSH на новый порт, обновляет UFW и откатывает при ошибке" {...rest}>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-muted-foreground">Current port</label>
+          <label className="text-xs text-muted-foreground">Текущий порт</label>
           <Input value={oldPort} onChange={(e) => setOldPort(e.target.value)} placeholder="22" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">New port</label>
+          <label className="text-xs text-muted-foreground">Новый порт</label>
           <Input value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder="2222" />
         </div>
       </div>
@@ -292,7 +292,7 @@ function ChangePortCard({ onRun, ...rest }: { onRun: (e: Record<string, string>)
         onClick={() => onRun({ OLD_SSH_PORT: oldPort, NEW_SSH_PORT: newPort })}
         disabled={rest.running || !newPort}
       >
-        Change Port
+        Сменить порт
       </Button>
     </ActionCard>
   )
@@ -303,18 +303,18 @@ function UFWCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) => voi
   const [panelIp, setPanelIp] = useState('')
   const [adminIp, setAdminIp] = useState('')
   return (
-    <ActionCard title="Setup UFW" description="Configure firewall: allow 443, SSH port, optional panel/admin IPs" {...rest}>
+    <ActionCard title="Настроить UFW" description="Настраивает firewall: 443, SSH порт, IP панели и админа при необходимости" {...rest}>
       <div className="space-y-1.5">
         <div>
-          <label className="text-xs text-muted-foreground">SSH Port</label>
+          <label className="text-xs text-muted-foreground">SSH порт</label>
           <Input value={sshPort} onChange={(e) => setSshPort(e.target.value)} placeholder="22" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Panel IP (optional, full access)</label>
+          <label className="text-xs text-muted-foreground">IP панели (необязательно, полный доступ)</label>
           <Input value={panelIp} onChange={(e) => setPanelIp(e.target.value)} placeholder="1.2.3.4" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Admin IP (optional, SSH only)</label>
+          <label className="text-xs text-muted-foreground">IP админа (необязательно, только SSH)</label>
           <Input value={adminIp} onChange={(e) => setAdminIp(e.target.value)} placeholder="1.2.3.4" />
         </div>
       </div>
@@ -328,7 +328,7 @@ function UFWCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) => voi
         }}
         disabled={rest.running || !sshPort}
       >
-        Setup UFW
+        Настроить UFW
       </Button>
     </ActionCard>
   )
@@ -337,11 +337,11 @@ function UFWCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) => voi
 function Fail2banCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) => void } & CardRest) {
   const [sshPort, setSshPort] = useState('22')
   return (
-    <ActionCard title="Setup Fail2ban" description="Block brute-force: 3 attempts → 24h ban, monitors SSH logs" {...rest}>
-      <label className="text-xs text-muted-foreground">SSH Port</label>
+    <ActionCard title="Настроить Fail2ban" description="Блокирует brute-force: 3 попытки → бан на 24 часа, следит за SSH логами" {...rest}>
+      <label className="text-xs text-muted-foreground">SSH порт</label>
       <Input value={sshPort} onChange={(e) => setSshPort(e.target.value)} placeholder="22" />
       <Button size="sm" onClick={() => onRun({ SSH_PORT: sshPort })} disabled={rest.running || !sshPort}>
-        Install & Configure
+        Установить и настроить
       </Button>
     </ActionCard>
   )
@@ -349,10 +349,10 @@ function Fail2banCard({ onRun, ...rest }: { onRun: (e: Record<string, string>) =
 
 function KernelCard({ onRun, ...rest }: { onRun: () => void } & CardRest) {
   return (
-    <ActionCard title="Kernel Hardening" description="Apply sysctl: SYN flood, IP spoofing, ASLR, ptrace scope, TCP tuning" {...rest}>
-      <p className="text-xs text-muted-foreground">No parameters required.</p>
+    <ActionCard title="Защита ядра" description="Применяет sysctl: SYN flood, IP spoofing, ASLR, ptrace scope, TCP tuning" {...rest}>
+      <p className="text-xs text-muted-foreground">Параметры не требуются.</p>
       <Button size="sm" onClick={onRun} disabled={rest.running}>
-        Apply
+        Применить
       </Button>
     </ActionCard>
   )
@@ -362,7 +362,7 @@ function TelegramNotifyCard({ onRun, ...rest }: { onRun: (e: Record<string, stri
   const [token, setToken] = useState('')
   const [chatId, setChatId] = useState('')
   return (
-    <ActionCard title="SSH Login Notify" description="Telegram notification on every SSH login via PAM" {...rest}>
+    <ActionCard title="Уведомления о SSH входе" description="Telegram-уведомление при каждом SSH входе через PAM" {...rest}>
       <div className="space-y-1.5">
         <div>
           <label className="text-xs text-muted-foreground">Bot Token</label>
@@ -383,7 +383,7 @@ function TelegramNotifyCard({ onRun, ...rest }: { onRun: (e: Record<string, stri
         onClick={() => onRun({ TG_BOT_TOKEN: token, TG_CHAT_ID: chatId })}
         disabled={rest.running || !token || !chatId}
       >
-        Enable
+        Включить
       </Button>
     </ActionCard>
   )

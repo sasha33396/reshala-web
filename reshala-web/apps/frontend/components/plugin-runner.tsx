@@ -48,16 +48,16 @@ export function PluginRunner({ serverName }: Props) {
     const payload: PluginRunPayload = { pluginId: selected.id, serverName }
 
     socket.on('connect', () => {
-      setOutput((prev) => [...prev, { server: '', type: 'stdout', data: 'connected, running...' }])
+      setOutput((prev) => [...prev, { server: '', type: 'stdout', data: 'подключено, выполняется...' }])
       socket.emit('run', payload)
     })
     socket.on('connect_error', (err) => {
-      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `connect error: ${err.message}` }])
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `ошибка подключения: ${err.message}` }])
       setRunning(false)
     })
     socket.on('disconnect', (reason) => {
       if (reason !== 'io client disconnect') {
-        setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `disconnected: ${reason}` }])
+        setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `соединение закрыто: ${reason}` }])
       }
     })
 
@@ -65,7 +65,7 @@ export function PluginRunner({ serverName }: Props) {
 
     socket.on('output', (line: OutputLine) => setOutput((prev) => [...prev, line]))
     socket.on('server-start', ({ server }: { server: string }) =>
-      setOutput((prev) => [...prev, { server, type: 'stdout', data: `server: ${server}` }]),
+      setOutput((prev) => [...prev, { server, type: 'stdout', data: `сервер: ${server}` }]),
     )
     socket.on('server-error', ({ error }: { server: string; error: string }) =>
       setOutput((prev) => [...prev, { server: '', type: 'stderr', data: error }]),
@@ -76,7 +76,7 @@ export function PluginRunner({ serverName }: Props) {
     })
     socket.on('error', (msg: unknown) => {
       const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
-      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `Error: ${text}` }])
+      setOutput((prev) => [...prev, { server: '', type: 'stderr', data: `Ошибка: ${text}` }])
       setRunning(false)
     })
   }
@@ -112,7 +112,7 @@ export function PluginRunner({ serverName }: Props) {
 
       <div className="flex items-center gap-3">
         <Button onClick={run} disabled={!selected || running} size="sm">
-          {running ? 'Running...' : 'Run'}
+          {running ? 'Выполняется...' : 'Запустить'}
         </Button>
         {selected && <Badge variant="secondary">{selected.title}</Badge>}
         {running && (
@@ -142,7 +142,7 @@ export function PluginRunner({ serverName }: Props) {
 
 function formatOutputLine(line: OutputLine): string {
   if (line.type === 'exit') {
-    return line.data === '0' ? 'completed successfully' : `completed with errors, exit code ${line.data}`
+    return line.data === '0' ? 'выполнено успешно' : `завершено с ошибками, код ${line.data}`
   }
   return line.data
 }

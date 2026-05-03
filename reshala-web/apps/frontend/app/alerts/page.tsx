@@ -112,7 +112,7 @@ export default function AlertsPage() {
     return (
       <main className="min-h-screen bg-background">
         <header className="border-b border-border px-6 py-3 flex items-center gap-4">
-          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
+          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Флот</Link>
           <h1 className="font-bold text-lg">{t('alerts.title')}</h1>
         </header>
         <div className="p-6 space-y-4">
@@ -130,7 +130,7 @@ export default function AlertsPage() {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
+          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Флот</Link>
           <h1 className="font-bold text-lg">{t('alerts.title')}</h1>
         </div>
         <div className="flex items-center gap-2">

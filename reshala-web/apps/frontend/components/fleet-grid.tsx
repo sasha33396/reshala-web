@@ -15,9 +15,9 @@ export function FleetGrid({ groups, statusMap, panelMap, hostByIp, deletingServe
     return (
       <div className="rounded-lg border border-dashed border-border bg-card px-6 py-14 text-center">
         <div className="mx-auto max-w-sm">
-          <h2 className="text-base font-semibold">No servers found</h2>
+          <h2 className="text-base font-semibold">Серверы не найдены</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Add a server or change the search filter to bring the fleet back into view.
+            Добавь сервер или измени фильтр поиска, чтобы вернуть список флота.
           </p>
         </div>
       </div>

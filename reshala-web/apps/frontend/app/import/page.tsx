@@ -74,15 +74,15 @@ export default function ImportPage() {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center gap-4">
         <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">
-          ← Fleet
+          ← Флот
         </Link>
-        <h1 className="font-bold">Import Fleet</h1>
+        <h1 className="font-bold">Импорт флота</h1>
       </header>
 
       <div className="p-6 max-w-2xl mx-auto space-y-6">
         <p className="text-sm text-muted-foreground">
-          Upload a <code className="text-foreground">servers.txt</code> file with tab-separated
-          columns: <strong>name</strong>, <strong>IP</strong>, <strong>sudo password</strong>.
+          Загрузи файл <code className="text-foreground">servers.txt</code> со столбцами через табуляцию:
+          <strong> имя</strong>, <strong>IP</strong>, <strong>sudo-пароль</strong>.
         </p>
 
         {/* Drop zone */}
@@ -103,21 +103,21 @@ export default function ImportPage() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
           />
           <p className="text-muted-foreground text-sm">
-            {file ? file.name : 'Drag & drop servers.txt or click to browse'}
+            {file ? file.name : 'Перетащи servers.txt или кликни, чтобы выбрать файл'}
           </p>
         </div>
 
         {/* Preview */}
         {preview.length > 0 && (
           <div>
-            <p className="text-sm font-medium mb-2">{preview.length} servers to import</p>
+            <p className="text-sm font-medium mb-2">К импорту: {preview.length} серверов</p>
             <div className="rounded border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-left px-3 py-2">Name</th>
+                    <th className="text-left px-3 py-2">Имя</th>
                     <th className="text-left px-3 py-2">IP</th>
-                    <th className="text-left px-3 py-2">Password</th>
+                    <th className="text-left px-3 py-2">Пароль</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -133,7 +133,7 @@ export default function ImportPage() {
                   {preview.length > 50 && (
                     <tr className="border-t border-border">
                       <td colSpan={3} className="px-3 py-1.5 text-xs text-muted-foreground">
-                        … and {preview.length - 50} more
+                        … и ещё {preview.length - 50}
                       </td>
                     </tr>
                   )}
@@ -146,7 +146,7 @@ export default function ImportPage() {
         {/* Import button */}
         {preview.length > 0 && !result && (
           <Button onClick={doImport} disabled={loading}>
-            {loading ? 'Importing…' : `Import ${preview.length} servers`}
+            {loading ? 'Импортируем...' : `Импортировать ${preview.length} серверов`}
           </Button>
         )}
 
@@ -155,25 +155,25 @@ export default function ImportPage() {
         {/* Result */}
         {result && (
           <div className="rounded-lg border border-border p-4 space-y-2">
-            <p className="font-medium">Import complete</p>
-            <p className="text-sm text-green-400">✓ Added: {result.added}</p>
-            <p className="text-sm text-muted-foreground">⟳ Skipped: {result.skipped}</p>
+            <p className="font-medium">Импорт завершён</p>
+            <p className="text-sm text-green-400">✓ Добавлено: {result.added}</p>
+            <p className="text-sm text-muted-foreground">⟳ Пропущено: {result.skipped}</p>
             {result.provisioned !== undefined && (
-              <p className="text-sm text-green-400">🔑 Keys deployed: {result.provisioned}</p>
+              <p className="text-sm text-green-400">🔑 Ключи развёрнуты: {result.provisioned}</p>
             )}
             {result.provisionFailed !== undefined && result.provisionFailed > 0 && (
-              <p className="text-sm text-yellow-400">⚠ Key deploy failed: {result.provisionFailed} (use Provision All later)</p>
+              <p className="text-sm text-yellow-400">⚠ Не удалось развернуть ключи: {result.provisionFailed} (запусти "Развернуть всем" позже)</p>
             )}
             {result.errors.length > 0 && (
               <div>
-                <p className="text-sm text-destructive">✗ Errors: {result.errors.length}</p>
+                <p className="text-sm text-destructive">✗ Ошибок: {result.errors.length}</p>
                 <ul className="text-xs text-destructive mt-1 space-y-0.5">
                   {result.errors.map((e, i) => <li key={i}>{e}</li>)}
                 </ul>
               </div>
             )}
             <Link href="/">
-              <Button variant="outline" size="sm" className="mt-2">← Back to Fleet</Button>
+              <Button variant="outline" size="sm" className="mt-2">← Вернуться во флот</Button>
             </Link>
           </div>
         )}

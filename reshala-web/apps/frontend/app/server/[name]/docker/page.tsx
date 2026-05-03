@@ -38,7 +38,7 @@ export default function DockerPage({ params }: Props) {
   }
 
   async function prune(type: 'images' | 'system') {
-    if (!confirm(type === 'system' ? 'Remove ALL unused Docker data (images, containers, volumes, networks)?' : 'Remove unused images?')) return
+    if (!confirm(type === 'system' ? 'Удалить ВСЕ неиспользуемые данные Docker: images, containers, volumes, networks?' : 'Удалить неиспользуемые images?')) return
     setPruning(type)
     setPruneResult(null)
     try {
@@ -61,7 +61,7 @@ export default function DockerPage({ params }: Props) {
         </Link>
         <h1 className="font-bold text-lg">Docker</h1>
         {!isLoading && (
-          <span className="text-xs text-muted-foreground">{running}/{total} running</span>
+          <span className="text-xs text-muted-foreground">{running}/{total} запущено</span>
         )}
         <div className="ml-auto flex gap-2">
           <Button
@@ -70,7 +70,7 @@ export default function DockerPage({ params }: Props) {
             onClick={() => prune('images')}
             disabled={pruning !== null}
           >
-            {pruning === 'images' ? 'Pruning…' : 'Prune images'}
+            {pruning === 'images' ? 'Очищаем...' : 'Очистить images'}
           </Button>
           <Button
             size="sm"
@@ -79,7 +79,7 @@ export default function DockerPage({ params }: Props) {
             disabled={pruning !== null}
             className="text-red-400 border-red-400/40 hover:bg-red-400/10"
           >
-            {pruning === 'system' ? 'Pruning…' : 'Prune all'}
+            {pruning === 'system' ? 'Очищаем...' : 'Очистить все'}
           </Button>
         </div>
       </header>
@@ -89,7 +89,7 @@ export default function DockerPage({ params }: Props) {
           <div className="rounded-lg border border-border bg-black p-3 font-mono text-xs text-green-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
             {pruneResult}
             <button onClick={() => setPruneResult(null)} className="block mt-2 text-muted-foreground hover:text-foreground">
-              [close]
+              [закрыть]
             </button>
           </div>
         )}
@@ -104,12 +104,12 @@ export default function DockerPage({ params }: Props) {
 
         {error && (
           <div className="rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-400">
-            Failed to connect: {(error as Error).message}
+            Не удалось подключиться: {(error as Error).message}
           </div>
         )}
 
         {!isLoading && containers.length === 0 && !error && (
-          <p className="text-muted-foreground text-sm">No containers found.</p>
+          <p className="text-muted-foreground text-sm">Контейнеры не найдены.</p>
         )}
 
         <div className="space-y-2">
@@ -181,7 +181,7 @@ function ContainerRow({
           disabled={busy}
           className="px-2.5 py-1 text-xs rounded border border-border hover:border-primary/50 transition-colors disabled:opacity-50"
         >
-          Logs
+          Логи
         </button>
         {!isRunning && (
           <button
@@ -189,7 +189,7 @@ function ContainerRow({
             disabled={busy}
             className="px-2.5 py-1 text-xs rounded border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-50"
           >
-            {busy ? '…' : 'Start'}
+            {busy ? '...' : 'Старт'}
           </button>
         )}
         {isRunning && (
@@ -198,7 +198,7 @@ function ContainerRow({
             disabled={busy}
             className="px-2.5 py-1 text-xs rounded border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
           >
-            {busy ? '…' : 'Restart'}
+            {busy ? '...' : 'Рестарт'}
           </button>
         )}
         {isRunning && (
@@ -207,7 +207,7 @@ function ContainerRow({
             disabled={busy}
             className="px-2.5 py-1 text-xs rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
           >
-            {busy ? '…' : 'Stop'}
+            {busy ? '...' : 'Стоп'}
           </button>
         )}
       </div>
@@ -242,7 +242,7 @@ function LogsPanel({
     )
     socket.on('log-end', () => setConnected(false))
     socket.on('log-error', (msg: string) => {
-      setLines((prev) => [...prev, { type: 'stderr', data: `Error: ${msg}` }])
+      setLines((prev) => [...prev, { type: 'stderr', data: `Ошибка: ${msg}` }])
       setConnected(false)
     })
 
@@ -267,7 +267,7 @@ function LogsPanel({
             onClick={onClose}
             className="flex-shrink-0 rounded border border-border px-3 py-1 text-sm text-muted-foreground hover:text-white"
           >
-            Close
+            Закрыть
           </button>
         </div>
         <div
@@ -275,7 +275,7 @@ function LogsPanel({
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-black p-3 font-mono text-xs leading-relaxed"
         >
           {lines.length === 0 ? (
-            <span className="text-muted-foreground">Connecting…</span>
+            <span className="text-muted-foreground">Подключаемся...</span>
           ) : (
             lines.map((l, i) => (
               <div key={i} className={l.type === 'stderr' ? 'text-red-400' : 'text-green-300'}>

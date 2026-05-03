@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Fleet</Link>
+          <Link href="/" className="text-muted-foreground hover:text-foreground text-sm">← Флот</Link>
           <h1 className="font-bold text-lg">{t('analytics.title')}</h1>
           {data && (
             <span className="text-xs text-muted-foreground">

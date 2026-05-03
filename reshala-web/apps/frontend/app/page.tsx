@@ -207,7 +207,7 @@ export default function HomePage() {
   }
 
   async function handleDeleteServer(name: string) {
-    const ok = window.confirm(`Remove "${name}" from Reshala fleet?`)
+    const ok = window.confirm(`Удалить "${name}" из флота Reshala?`)
     if (!ok) return
     setDeletingServer(name)
     try {
@@ -215,7 +215,7 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ['fleet'] })
       queryClient.invalidateQueries({ queryKey: ['fleet-status'] })
     } catch (e: any) {
-      window.alert(e?.message ?? 'Failed to delete server')
+      window.alert(e?.message ?? 'Не удалось удалить сервер')
     } finally {
       setDeletingServer(null)
     }
@@ -248,7 +248,7 @@ export default function HomePage() {
             <h1 className="text-lg font-bold leading-5">{t('fleet.title')}</h1>
             {!isLoading && (
               <span className="text-xs text-muted-foreground">
-                {filteredServers} shown from {totalServers} servers
+                Показано {filteredServers} из {totalServers} серверов
               </span>
             )}
           </div>
@@ -309,11 +309,11 @@ export default function HomePage() {
             size="sm"
             onClick={handleProvisionAll}
             disabled={provisioning}
-            title="Deploy SSH keys to all servers using stored passwords"
+            title="Развернуть SSH-ключи на все серверы по сохранённым паролям"
             className="gap-2"
           >
             <UserPlus className="h-4 w-4" />
-            <span>{provisioning ? 'Provisioning...' : 'Provision All'}</span>
+            <span>{provisioning ? 'Разворачиваем...' : 'Развернуть всем'}</span>
           </Button>
           <LangToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title={t('nav.logout')}>
@@ -324,10 +324,10 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-screen-2xl px-4 py-5 lg:px-6">
         <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-4">
-          <StatPill label="Online" value={totalOnline} tone="good" />
-          <StatPill label="Offline" value={totalOffline} tone={totalOffline > 0 ? 'bad' : 'muted'} />
-          <StatPill label="Panel nodes" value={panelConnected} tone="muted" />
-          <StatPill label="Users" value={panelUsers} tone="muted" />
+          <StatPill label="Онлайн" value={totalOnline} tone="good" />
+          <StatPill label="Офлайн" value={totalOffline} tone={totalOffline > 0 ? 'bad' : 'muted'} />
+          <StatPill label="Ноды в панели" value={panelConnected} tone="muted" />
+          <StatPill label="Пользователи" value={panelUsers} tone="muted" />
         </div>
         {isLoading || (groupBy === 'dns' && isDnsLoading) ? (
           <FleetSkeleton />
@@ -349,7 +349,7 @@ export default function HomePage() {
               onClick={() => setShowUntracked((v) => !v)}
             >
               <span>{showUntracked ? '▾' : '▸'}</span>
-              <span>Not in fleet</span>
+              <span>Не во флоте</span>
               <span className="ml-1 text-xs font-normal bg-destructive/20 text-destructive px-1.5 py-0.5 rounded-full">
                 {untracked.length}
               </span>
@@ -372,10 +372,10 @@ export default function HomePage() {
             <div className="flex items-start justify-between gap-3">
               <span className="text-2xl">🔑</span>
               <div>
-                <h2 className="font-bold text-lg">Provision All</h2>
-                <p className="text-xs text-muted-foreground">Deploying SSH keys to all servers…</p>
+                <h2 className="font-bold text-lg">Развернуть всем</h2>
+                <p className="text-xs text-muted-foreground">Разворачиваем SSH-ключи на все серверы…</p>
               </div>
-              <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(true)} title="Run in background">
+              <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(true)} title="Свернуть в фон">
                 <Minimize2 className="h-4 w-4" />
               </Button>
             </div>
@@ -384,7 +384,7 @@ export default function HomePage() {
               <>
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                    <span>{progress.done} / {progress.total} servers</span>
+                    <span>{progress.done} / {progress.total} серверов</span>
                     <span className="font-mono font-bold">{pct}%</span>
                   </div>
                   <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -395,8 +395,8 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex gap-4 text-sm">
-                  <span className="text-green-400 font-mono">✓ {progress.ok} ok</span>
-                  <span className="text-red-400 font-mono">✗ {progress.failed} failed</span>
+                  <span className="text-green-400 font-mono">✓ {progress.ok} успешно</span>
+                  <span className="text-red-400 font-mono">✗ {progress.failed} с ошибкой</span>
                 </div>
                 {progress.errors.length > 0 && (
                   <div className="max-h-32 overflow-y-auto rounded-lg bg-muted/50 p-3 space-y-1">
@@ -419,14 +419,14 @@ export default function HomePage() {
         <div className="fixed bottom-4 right-4 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-border bg-card p-4 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold">Provision All</h2>
+              <h2 className="text-sm font-semibold">Развернуть всем</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 {progress && progress.total > 0
-                  ? `${progress.done}/${progress.total} servers, ${progress.ok} ok, ${progress.failed} failed`
-                  : 'Starting...'}
+                  ? `${progress.done}/${progress.total} серверов, ${progress.ok} успешно, ${progress.failed} с ошибкой`
+                  : 'Запускаем...'}
               </p>
             </div>
-            <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(false)} title="Show progress">
+            <Button size="icon" variant="ghost" onClick={() => setProvisionMinimized(false)} title="Показать прогресс">
               <Maximize2 className="h-4 w-4" />
             </Button>
           </div>
@@ -440,19 +440,19 @@ export default function HomePage() {
       {provisionResult && !provisioning && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setProvisionResult(null); setShowErrors(false) }}>
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md mx-4 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-bold text-lg">🔑 Provision All — Done</h2>
+            <h2 className="font-bold text-lg">🔑 Развернуть всем — готово</h2>
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded-lg bg-muted p-3">
                 <p className="text-2xl font-bold">{provisionResult.total}</p>
-                <p className="text-xs text-muted-foreground mt-1">Total</p>
+                <p className="text-xs text-muted-foreground mt-1">Всего</p>
               </div>
               <div className="rounded-lg bg-green-950/50 border border-green-800/40 p-3">
                 <p className="text-2xl font-bold text-green-400">{provisionResult.ok}</p>
-                <p className="text-xs text-muted-foreground mt-1">OK</p>
+                <p className="text-xs text-muted-foreground mt-1">Успешно</p>
               </div>
               <div className="rounded-lg bg-red-950/50 border border-red-800/40 p-3">
                 <p className="text-2xl font-bold text-red-400">{provisionResult.failed}</p>
-                <p className="text-xs text-muted-foreground mt-1">Failed</p>
+                <p className="text-xs text-muted-foreground mt-1">Ошибки</p>
               </div>
             </div>
 
@@ -462,7 +462,7 @@ export default function HomePage() {
                   className="text-xs text-muted-foreground hover:text-foreground underline"
                   onClick={() => setShowErrors(!showErrors)}
                 >
-                  {showErrors ? 'Hide errors' : `Show ${provisionResult.errors.length} errors`}
+                  {showErrors ? 'Скрыть ошибки' : `Показать ошибки (${provisionResult.errors.length})`}
                 </button>
                 {showErrors && (
                   <div className="mt-2 max-h-48 overflow-y-auto rounded-lg bg-muted/50 p-3 space-y-1">
@@ -475,7 +475,7 @@ export default function HomePage() {
             )}
 
             <Button onClick={() => { setProvisionResult(null); setShowErrors(false) }} className="w-full">
-              Close
+              Закрыть
             </Button>
           </div>
         </div>
@@ -506,7 +506,7 @@ export default function HomePage() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t('add.password')}</label>
-                <Input type="password" placeholder="password" value={addForm.password} onChange={(e) => setAddForm(f => ({ ...f, password: e.target.value }))} required />
+                <Input type="password" placeholder="пароль" value={addForm.password} onChange={(e) => setAddForm(f => ({ ...f, password: e.target.value }))} required />
               </div>
               {addResult && (
                 <p className={`text-sm ${addResult === t('add.success') ? 'text-green-500' : 'text-red-500'}`}>{addResult}</p>
@@ -602,25 +602,25 @@ function UntrackedCard({ node, onAdd }: { node: PanelNode; onAdd: () => void }) 
       <div className="flex items-center justify-between">
         <span
           className="font-medium text-sm truncate hover:text-primary transition-colors cursor-pointer"
-          title="Click to copy"
+          title="Нажми, чтобы скопировать"
           onClick={() => copy(node.name)}
         >
-          {copied === node.name ? '✓ copied' : node.name}
+          {copied === node.name ? '✓ скопировано' : node.name}
         </span>
         <span className={`text-[10px] px-1.5 py-0.5 rounded ${node.isConnected ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
-          {node.isConnected ? `👤${node.usersOnline}` : node.isConnecting ? 'connecting…' : 'offline'}
+          {node.isConnected ? `👤${node.usersOnline}` : node.isConnecting ? 'подключается...' : 'офлайн'}
         </span>
       </div>
       <p
         className="text-xs text-muted-foreground font-mono hover:text-primary transition-colors cursor-pointer"
-        title="Click to copy"
+        title="Нажми, чтобы скопировать"
         onClick={() => copy(node.address)}
       >
-        {copied === node.address ? '✓ copied' : node.address}
+        {copied === node.address ? '✓ скопировано' : node.address}
       </p>
       <p className="text-[10px] text-muted-foreground/60">{node.countryCode}</p>
       <Button size="sm" variant="outline" className="mt-auto text-xs" onClick={onAdd}>
-        + Add to fleet
+        + Добавить во флот
       </Button>
     </div>
   )

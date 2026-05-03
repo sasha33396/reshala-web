@@ -76,9 +76,9 @@ export default function ServerPage({ params }: Props) {
     setProvisionResult(null)
     try {
       const res = await provisionServer(name)
-      setProvisionResult(res.ok ? 'Key deployed successfully' : `Failed: ${res.error}`)
+      setProvisionResult(res.ok ? 'Ключ успешно развёрнут' : `Ошибка: ${res.error}`)
     } catch (e: any) {
-      setProvisionResult(`Error: ${e?.message}`)
+      setProvisionResult(`Ошибка: ${e?.message}`)
     } finally {
       setProvisioning(false)
     }
@@ -123,9 +123,9 @@ export default function ServerPage({ params }: Props) {
     try {
       await addServerToCloudflareZone(name, target.domain, target.zoneName)
       await qc.invalidateQueries({ queryKey: ['cloudflare-nodes', name] })
-      setDnsMessage('Added to DNS zone')
+      setDnsMessage('IP добавлен в DNS-зону')
     } catch (e: any) {
-      setDnsMessage(e?.message ?? 'Failed to add DNS record')
+      setDnsMessage(e?.message ?? 'Не удалось добавить DNS-запись')
     } finally {
       setDnsBusy(false)
     }
@@ -137,9 +137,9 @@ export default function ServerPage({ params }: Props) {
     try {
       await removeServerFromCloudflareZone(name, zone.domain, zone.name)
       await qc.invalidateQueries({ queryKey: ['cloudflare-nodes', name] })
-      setDnsMessage('Removed from DNS zone')
+      setDnsMessage('IP убран из DNS-зоны')
     } catch (e: any) {
-      setDnsMessage(e?.message ?? 'Failed to remove DNS record')
+      setDnsMessage(e?.message ?? 'Не удалось удалить DNS-запись')
     } finally {
       setDnsBusy(false)
     }
@@ -227,15 +227,15 @@ export default function ServerPage({ params }: Props) {
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatCard
-                  label="Status"
-                  value={panelNode.isDisabled ? 'Disabled' : panelNode.isConnected ? 'Connected' : panelNode.isConnecting ? 'Connecting…' : 'Disconnected'}
+                  label="Статус"
+                  value={panelNode.isDisabled ? 'Выключена' : panelNode.isConnected ? 'Подключена' : panelNode.isConnecting ? 'Подключается...' : 'Отключена'}
                 />
-                <StatCard label="Users online" value={String(panelNode.usersOnline)} />
+                <StatCard label="Пользователи онлайн" value={String(panelNode.usersOnline)} />
                 {!!panelNode.trafficUsedBytes && (
-                  <StatCard label="Traffic used" value={formatBytes(panelNode.trafficUsedBytes)} />
+                  <StatCard label="Трафик использован" value={formatBytes(panelNode.trafficUsedBytes)} />
                 )}
                 {!!panelNode.trafficLimitBytes && (
-                  <StatCard label="Traffic limit" value={formatBytes(panelNode.trafficLimitBytes)} />
+                  <StatCard label="Лимит трафика" value={formatBytes(panelNode.trafficLimitBytes)} />
                 )}
               </div>
               {panelNode.lastStatusMessage && !panelNode.isConnected && (
@@ -304,7 +304,7 @@ export default function ServerPage({ params }: Props) {
               </div>
 
               {dnsMessage && (
-                <p className={`text-sm ${dnsMessage.startsWith('Failed') ? 'text-destructive' : 'text-emerald-400'}`}>
+                <p className={`text-sm ${dnsMessage.startsWith('Не удалось') ? 'text-destructive' : 'text-emerald-400'}`}>
                   {dnsMessage}
                 </p>
               )}
@@ -345,7 +345,7 @@ export default function ServerPage({ params }: Props) {
               {provisioning ? t('server.provisioning') : t('server.provision')}
             </Button>
             {provisionResult && (
-              <span className={`text-sm ${provisionResult.startsWith('Key') ? 'text-green-500' : 'text-red-500'}`}>
+              <span className={`text-sm ${provisionResult.startsWith('Ключ') ? 'text-green-500' : 'text-red-500'}`}>
                 {provisionResult}
               </span>
             )}
@@ -359,9 +359,9 @@ export default function ServerPage({ params }: Props) {
             </CardHeader>
             <CardContent className="text-sm font-mono space-y-1 text-muted-foreground">
               <p>IP: {server.ip}</p>
-              <p>Port: {server.port}</p>
-              <p>User: {server.user}</p>
-              <p>Key: {server.keyPath}</p>
+              <p>Порт: {server.port}</p>
+              <p>Пользователь: {server.user}</p>
+              <p>Ключ: {server.keyPath}</p>
             </CardContent>
           </Card>
         )}

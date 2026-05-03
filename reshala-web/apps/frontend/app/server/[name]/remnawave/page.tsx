@@ -65,7 +65,7 @@ export default function RemnawavePage({ params }: Props) {
       const res = await updateRemnanode(name)
       setUpdateOutput(res.output)
     } catch (e: any) {
-      setUpdateOutput(`Error: ${e?.message}`)
+      setUpdateOutput(`Ошибка: ${e?.message}`)
     } finally {
       setUpdating(false)
       qc.invalidateQueries({ queryKey: ['docker', name] })
@@ -107,7 +107,7 @@ export default function RemnawavePage({ params }: Props) {
     })
     socket.on('error', (msg: unknown) => {
       const text = typeof msg === 'string' ? msg : (msg as any)?.message ?? JSON.stringify(msg)
-      setInstallOutput((prev) => [...prev, { type: 'stderr', data: `Error: ${text}` }])
+      setInstallOutput((prev) => [...prev, { type: 'stderr', data: `Ошибка: ${text}` }])
       setInstalling(false)
       socket.disconnect()
     })
@@ -124,14 +124,14 @@ export default function RemnawavePage({ params }: Props) {
         <Link href={`/server/${name}`} className="text-muted-foreground hover:text-foreground text-sm">
           ← {name}
         </Link>
-        <h1 className="font-bold text-lg">Remnawave Node</h1>
+        <h1 className="font-bold text-lg">Remnawave нода</h1>
       </header>
 
       <div className="p-6 max-w-screen-lg mx-auto space-y-5">
 
         {/* Node status card */}
         <section className="rounded-lg border border-border bg-card p-4 space-y-4">
-          <p className="font-semibold text-sm">Node Status</p>
+          <p className="font-semibold text-sm">Статус ноды</p>
 
           {isLoading && (
             <div className="h-10 w-48 bg-muted rounded animate-pulse" />
@@ -139,9 +139,9 @@ export default function RemnawavePage({ params }: Props) {
 
           {!isLoading && !remnanode && (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">remnanode container not found</span>
+              <span className="text-sm text-muted-foreground">контейнер remnanode не найден</span>
               <Button size="sm" variant="outline" onClick={() => setShowInstall(true)}>
-                Install Node
+                Установить ноду
               </Button>
             </div>
           )}
@@ -163,12 +163,12 @@ export default function RemnawavePage({ params }: Props) {
               <div className="flex gap-2 flex-wrap">
                 {!isRunning && (
                   <Button size="sm" onClick={() => control('start')} disabled={busy}>
-                    {busy ? '…' : 'Start'}
+                    {busy ? '...' : 'Старт'}
                   </Button>
                 )}
                 {isRunning && (
                   <Button size="sm" variant="outline" onClick={() => control('restart')} disabled={busy}>
-                    {busy ? '…' : 'Restart'}
+                    {busy ? '...' : 'Рестарт'}
                   </Button>
                 )}
                 {isRunning && (
@@ -179,11 +179,11 @@ export default function RemnawavePage({ params }: Props) {
                     onClick={() => control('stop')}
                     disabled={busy}
                   >
-                    {busy ? '…' : 'Stop'}
+                    {busy ? '...' : 'Стоп'}
                   </Button>
                 )}
                 <Button size="sm" variant="outline" onClick={() => setShowLogs(true)}>
-                  Logs
+                  Логи
                 </Button>
                 <Button
                   size="sm"
@@ -191,7 +191,7 @@ export default function RemnawavePage({ params }: Props) {
                   onClick={handleUpdate}
                   disabled={updating}
                 >
-                  {updating ? 'Updating…' : 'Update (pull + up -d)'}
+                  {updating ? 'Обновляем...' : 'Обновить (pull + up -d)'}
                 </Button>
               </div>
 
@@ -202,7 +202,7 @@ export default function RemnawavePage({ params }: Props) {
                     onClick={() => setUpdateOutput(null)}
                     className="block mt-2 text-muted-foreground hover:text-foreground"
                   >
-                    [close]
+                    [закрыть]
                   </button>
                 </div>
               )}
@@ -214,20 +214,20 @@ export default function RemnawavePage({ params }: Props) {
         {(!remnanode || showInstall) && (
           <section className="rounded-lg border border-border bg-card p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-sm">Install Remnawave Node</p>
+              <p className="font-semibold text-sm">Установка Remnawave ноды</p>
               {showInstall && remnanode && (
                 <button
                   onClick={() => setShowInstall(false)}
                   className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  Cancel
+                  Отмена
                 </button>
               )}
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="text-xs text-muted-foreground">Domain (SELFSTEAL_DOMAIN) *</label>
+                <label className="text-xs text-muted-foreground">Домен (SELFSTEAL_DOMAIN) *</label>
                 <Input
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
@@ -235,7 +235,7 @@ export default function RemnawavePage({ params }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Node Port (default 2222)</label>
+                <label className="text-xs text-muted-foreground">Порт ноды (по умолчанию 2222)</label>
                 <Input
                   value={nodePort}
                   onChange={(e) => setNodePort(e.target.value)}
@@ -243,16 +243,16 @@ export default function RemnawavePage({ params }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Node Secret Key (optional)</label>
+                <label className="text-xs text-muted-foreground">Secret Key ноды (необязательно)</label>
                 <Input
                   type="password"
                   value={nodeSecret}
                   onChange={(e) => setNodeSecret(e.target.value)}
-                  placeholder="auto-generated if empty"
+                  placeholder="если пусто, сгенерируется автоматически"
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Certificate Mode</label>
+                <label className="text-xs text-muted-foreground">Режим сертификата</label>
                 <div className="flex gap-3 mt-1.5">
                   <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                     <input
@@ -260,7 +260,7 @@ export default function RemnawavePage({ params }: Props) {
                       checked={certMode === 'self'}
                       onChange={() => setCertMode('self')}
                     />
-                    Self-signed
+                    Самоподписанный
                   </label>
                   <label className="flex items-center gap-1.5 text-sm cursor-pointer">
                     <input
@@ -274,7 +274,7 @@ export default function RemnawavePage({ params }: Props) {
               </div>
               {certMode === 'acme' && (
                 <div>
-                  <label className="text-xs text-muted-foreground">Let's Encrypt Email</label>
+                  <label className="text-xs text-muted-foreground">Email для Let's Encrypt</label>
                   <Input
                     type="email"
                     value={email}
@@ -289,7 +289,7 @@ export default function RemnawavePage({ params }: Props) {
               onClick={runInstall}
               disabled={installing || !domain}
             >
-              {installing ? 'Installing…' : 'Install Node'}
+              {installing ? 'Устанавливаем...' : 'Установить ноду'}
             </Button>
 
             {installOutput.length > 0 && (
@@ -362,7 +362,7 @@ function LogsPanel({
     )
     socket.on('log-end', () => setConnected(false))
     socket.on('log-error', (msg: string) => {
-      setLines((prev) => [...prev, { type: 'stderr', data: `Error: ${msg}` }])
+      setLines((prev) => [...prev, { type: 'stderr', data: `Ошибка: ${msg}` }])
       setConnected(false)
     })
 
@@ -384,7 +384,7 @@ function LogsPanel({
             onClick={onClose}
             className="flex-shrink-0 rounded border border-border px-3 py-1 text-sm text-muted-foreground hover:text-white"
           >
-            Close
+            Закрыть
           </button>
         </div>
         <div
@@ -392,7 +392,7 @@ function LogsPanel({
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-black p-3 font-mono text-xs leading-relaxed"
         >
           {lines.length === 0 ? (
-            <span className="text-muted-foreground">Connecting…</span>
+            <span className="text-muted-foreground">Подключаемся...</span>
           ) : (
             lines.map((l, i) => (
               <div key={i} className={l.type === 'stderr' ? 'text-red-400' : 'text-green-300'}>

@@ -43,7 +43,7 @@ export function MetricsChart({ serverName }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-muted-foreground mb-2">CPU / RAM / Disk (%)</p>
+        <p className="text-sm text-muted-foreground mb-2">CPU / RAM / Диск (%)</p>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -53,13 +53,13 @@ export function MetricsChart({ serverName }: Props) {
             <Legend />
             <Line type="monotone" dataKey="cpu" stroke="#3b82f6" dot={false} name="CPU" />
             <Line type="monotone" dataKey="ram" stroke="#8b5cf6" dot={false} name="RAM" />
-            <Line type="monotone" dataKey="disk" stroke="#f59e0b" dot={false} name="Disk" />
+            <Line type="monotone" dataKey="disk" stroke="#f59e0b" dot={false} name="Диск" />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       <div>
-        <p className="text-sm text-muted-foreground mb-2">Network (MB/s)</p>
+        <p className="text-sm text-muted-foreground mb-2">Сеть (MB/s)</p>
         <ResponsiveContainer width="100%" height={160}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -67,8 +67,8 @@ export function MetricsChart({ serverName }: Props) {
             <YAxis tick={{ fontSize: 10 }} unit=" MB/s" />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="netIn" stroke="#22c55e" dot={false} name="In" />
-            <Line type="monotone" dataKey="netOut" stroke="#ef4444" dot={false} name="Out" />
+            <Line type="monotone" dataKey="netIn" stroke="#22c55e" dot={false} name="Вход" />
+            <Line type="monotone" dataKey="netOut" stroke="#ef4444" dot={false} name="Выход" />
           </LineChart>
         </ResponsiveContainer>
       </div>

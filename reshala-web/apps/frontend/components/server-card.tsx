@@ -44,10 +44,10 @@ export function ServerCard({ server, online, panelNode, panelHost, deleting, onD
         <div className="mb-2 flex items-start justify-between gap-3">
           <span
             className="min-w-0 truncate pr-2 text-sm font-semibold transition-colors group-hover:text-primary"
-            title="Click to copy"
+            title="Нажми, чтобы скопировать"
             onClick={(e) => { e.preventDefault(); copy(server.name) }}
           >
-            {copied === server.name ? '✓ copied' : server.name}
+            {copied === server.name ? 'скопировано' : server.name}
           </span>
           <div className="flex items-center gap-1.5">
             {panelNode !== undefined && (
@@ -58,7 +58,7 @@ export function ServerCard({ server, online, panelNode, panelHost, deleting, onD
               <button
                 type="button"
                 className="rounded p-1 text-muted-foreground opacity-70 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-40"
-                title="Remove from fleet"
+                title="Удалить из флота"
                 disabled={deleting}
                 onClick={(e) => {
                   e.preventDefault()
@@ -73,21 +73,21 @@ export function ServerCard({ server, online, panelNode, panelHost, deleting, onD
         </div>
         <p
           className="truncate font-mono text-xs text-muted-foreground transition-colors hover:text-primary"
-          title="Click to copy"
+          title="Нажми, чтобы скопировать"
           onClick={(e) => { e.preventDefault(); copy(server.ip) }}
         >
-          {copied === server.ip ? '✓ copied' : server.ip}
+          {copied === server.ip ? 'скопировано' : server.ip}
         </p>
         {panelHost && (
           <p
             className="mb-3 truncate text-[11px] text-muted-foreground/70 transition-colors hover:text-primary/70"
-            title={`${panelHost.remark} — click to copy`}
+            title={`${panelHost.remark} — нажми, чтобы скопировать`}
             onClick={(e) => { e.preventDefault(); copy(panelHost.address) }}
           >
-            {copied === panelHost.address ? '✓ copied' : `${panelHost.address}:${panelHost.port}`}
+            {copied === panelHost.address ? 'скопировано' : `${panelHost.address}:${panelHost.port}`}
           </p>
         )}
-        {!panelHost && <p className={`mb-3 text-[11px] ${noPanel ? 'font-medium text-yellow-500' : 'text-muted-foreground/40'}`}>{noPanel ? 'No panel node' : 'No panel host'}</p>}
+        {!panelHost && <p className={`mb-3 text-[11px] ${noPanel ? 'font-medium text-yellow-500' : 'text-muted-foreground/40'}`}>{noPanel ? 'Нет ноды в панели' : 'Нет хоста в панели'}</p>}
         {noPanel && onDelete && (
           <button
             type="button"
@@ -99,24 +99,24 @@ export function ServerCard({ server, online, panelNode, panelHost, deleting, onD
               onDelete(server.name)
             }}
           >
-            {deleting ? 'Removing...' : 'No panel - remove'}
+            {deleting ? 'Удаляем...' : 'Нет в панели - удалить'}
           </button>
         )}
 
         {online === false ? (
           <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            Offline
+            Офлайн
           </div>
         ) : metrics && (metrics.cpu > 0 || metrics.ram > 0 || metrics.uptime > 0) ? (
           <>
             <MiniBar label="CPU" value={metrics.cpu} />
             <MiniBar label="RAM" value={metrics.ram} />
             <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
-              Up {formatUptime(metrics.uptime)}
+              Аптайм {formatUptime(metrics.uptime)}
             </p>
           </>
         ) : metrics ? (
-          <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">No metrics</p>
+          <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">Нет метрик</p>
         ) : (
           <div className="space-y-1.5">
             <div className="h-1.5 w-full rounded bg-muted animate-pulse" />
@@ -145,23 +145,23 @@ function MiniBar({ label, value }: { label: string; value: number }) {
 
 function PanelBadge({ node, online }: { node: PanelNode | null; online: boolean | null }) {
   if (!node) return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-500">no panel</span>
+    <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-500">нет в панели</span>
   )
   if (node.isDisabled) return (
-    <span className="text-[10px] px-1 rounded bg-muted text-muted-foreground">disabled</span>
+    <span className="text-[10px] px-1 rounded bg-muted text-muted-foreground">выключена</span>
   )
   if (node.isConnecting) return (
-    <span className="text-[10px] px-1 rounded bg-yellow-500/20 text-yellow-400">connecting…</span>
+    <span className="text-[10px] px-1 rounded bg-yellow-500/20 text-yellow-400">подключается...</span>
   )
   if (!node.isConnected) return (
-    <span className="text-[10px] px-1 rounded bg-destructive/20 text-destructive">panel offline</span>
+    <span className="text-[10px] px-1 rounded bg-destructive/20 text-destructive">панель офлайн</span>
   )
   return (
     <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 tabular-nums flex items-center gap-1">
       <span>👤{node.usersOnline}</span>
       <span
         className={`w-1.5 h-1.5 rounded-full ${online === true ? 'bg-green-400' : online === false ? 'bg-red-400' : 'bg-muted-foreground/40'}`}
-        title={online === true ? 'SSH ok' : online === false ? 'No SSH access' : 'SSH unknown'}
+        title={online === true ? 'SSH доступен' : online === false ? 'Нет SSH-доступа' : 'SSH неизвестен'}
       />
     </span>
   )
