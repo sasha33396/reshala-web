@@ -63,10 +63,14 @@ export class CloudflareNodesService {
     const config = await this.fetchConfig()
     const domains = this.ensureDomains(config)
     const target = this.findDomainZone(domains, domain, zoneName)
+    let changed = false
 
     if (target) {
       const ips = this.zoneIps(target.zone)
-      if (!ips.includes(ip)) this.setZoneIps(target.zone, [...ips, ip])
+      if (!ips.includes(ip)) {
+        this.setZoneIps(target.zone, [...ips, ip])
+        changed = true
+      }
     } else {
       const entry = domains.find((item) => item.domain === domain)
       const zone = { name: zoneName, ttl: 60, proxied: false, nodes: [{ ip }] }
@@ -75,9 +79,10 @@ export class CloudflareNodesService {
       } else {
         domains.push({ domain, zones: [zone] })
       }
+      changed = true
     }
 
-    await this.saveConfig(config)
+    if (changed) await this.saveConfig(config, { action: 'add', domain, zoneName, ip })
     return this.getMatchesForIp(ip)
   }
 
@@ -86,8 +91,10 @@ export class CloudflareNodesService {
     const config = await this.fetchConfig()
     const target = this.findDomainZone(this.ensureDomains(config), domain, zoneName)
     if (!target) return this.getMatchesForIp(ip)
-    this.setZoneIps(target.zone, this.zoneIps(target.zone).filter((item) => item !== ip))
-    await this.saveConfig(config)
+    const ips = this.zoneIps(target.zone)
+    if (!ips.includes(ip)) return this.getMatchesForIp(ip)
+    this.setZoneIps(target.zone, ips.filter((item) => item !== ip))
+    await this.saveConfig(config, { action: 'remove', domain, zoneName, ip })
     return this.getMatchesForIp(ip)
   }
 
@@ -105,7 +112,10 @@ export class CloudflareNodesService {
     return (await res.json()) as RawConfig
   }
 
-  private async saveConfig(config: RawConfig): Promise<void> {
+  private async saveConfig(
+    config: RawConfig,
+    context: { action: 'add' | 'remove'; domain: string; zoneName: string; ip: string },
+  ): Promise<void> {
     const res = await fetch(`${this.baseUrl}/api/config`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': this.token },
@@ -114,7 +124,9 @@ export class CloudflareNodesService {
     })
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText)
-      this.logger.warn(`Cloudflare nodes API PATCH failed: ${res.status} ${text}`)
+      this.logger.warn(
+        `Cloudflare nodes API PATCH failed while ${context.action} ${context.ip} in ${context.zoneName}.${context.domain}: ${res.status} ${text}`,
+      )
       throw new BadRequestException(`Cloudflare nodes API save returned ${res.status}: ${this.formatApiError(text)}`)
     }
   }
