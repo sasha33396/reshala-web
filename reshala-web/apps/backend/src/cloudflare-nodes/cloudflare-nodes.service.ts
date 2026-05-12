@@ -66,12 +66,15 @@ export class CloudflareNodesService {
 
     if (target) {
       const ips = this.zoneIps(target.zone)
-      if (!ips.includes(ip)) target.zone.ips = [...ips, ip]
+      if (!ips.includes(ip)) this.setZoneIps(target.zone, [...ips, ip])
     } else {
-      domains.push({
-        domain,
-        zones: [{ name: zoneName, ttl: 60, proxied: false, ips: [ip] }],
-      })
+      const entry = domains.find((item) => item.domain === domain)
+      const zone = { name: zoneName, ttl: 60, proxied: false, nodes: [{ ip }] }
+      if (entry) {
+        entry.zones = [...(entry.zones ?? []), zone]
+      } else {
+        domains.push({ domain, zones: [zone] })
+      }
     }
 
     await this.saveConfig(config)
@@ -83,7 +86,7 @@ export class CloudflareNodesService {
     const config = await this.fetchConfig()
     const target = this.findDomainZone(this.ensureDomains(config), domain, zoneName)
     if (!target) return this.getMatchesForIp(ip)
-    target.zone.ips = this.zoneIps(target.zone).filter((item) => item !== ip)
+    this.setZoneIps(target.zone, this.zoneIps(target.zone).filter((item) => item !== ip))
     await this.saveConfig(config)
     return this.getMatchesForIp(ip)
   }
@@ -112,7 +115,7 @@ export class CloudflareNodesService {
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText)
       this.logger.warn(`Cloudflare nodes API PATCH failed: ${res.status} ${text}`)
-      throw new BadRequestException(`Cloudflare nodes API save returned ${res.status}`)
+      throw new BadRequestException(`Cloudflare nodes API save returned ${res.status}: ${this.formatApiError(text)}`)
     }
   }
 
@@ -148,6 +151,23 @@ export class CloudflareNodesService {
     if (Array.isArray(zone.ips)) return [...zone.ips]
     if (Array.isArray(zone.nodes)) return zone.nodes.map((node) => node.ip).filter(Boolean)
     return []
+  }
+
+  private setZoneIps(zone: RawZone, ips: string[]) {
+    const uniqueIps = Array.from(new Set(ips.filter(Boolean)))
+    if (Array.isArray(zone.nodes)) {
+      const existing = new Map(zone.nodes.map((node) => [node.ip, node]))
+      zone.nodes = uniqueIps.map((ip) => existing.get(ip) ?? { ip })
+      delete zone.ips
+      return
+    }
+    zone.ips = uniqueIps
+  }
+
+  private formatApiError(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed) return 'empty response'
+    return trimmed.length > 500 ? `${trimmed.slice(0, 500)}...` : trimmed
   }
 
   private validateInput(domain: string, zoneName: string, ip: string) {
