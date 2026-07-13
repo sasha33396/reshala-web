@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Param, UseGuards, NotFoundException } from '@nestjs/common'
+import { Body, Controller, Get, Post, Param, UseGuards, NotFoundException } from '@nestjs/common'
 import { DockerService } from './docker.service'
 import { FleetService } from '../fleet/fleet.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { BulkDockerControlDto, BulkDockerScanDto } from './dto/bulk-docker.dto'
 
 @UseGuards(JwtAuthGuard)
 @Controller('docker')
@@ -15,6 +16,26 @@ export class DockerController {
     const s = this.fleetService.getByName(name)
     if (!s) throw new NotFoundException(`Server "${name}" not found`)
     return s
+  }
+
+  @Post('bulk/containers')
+  listContainersBulk(@Body() dto: BulkDockerScanDto) {
+    const uniqueNames = [...new Set(dto.serverNames)]
+    return this.dockerService.listContainersBulk(uniqueNames.map((name) => this.getServer(name)))
+  }
+
+  @Post('bulk/control')
+  controlBulk(@Body() dto: BulkDockerControlDto) {
+    const uniqueTargets = Array.from(
+      new Map(dto.targets.map((target) => [`${target.serverName}:${target.containerId}`, target])).values(),
+    )
+    return this.dockerService.controlBulk(
+      uniqueTargets.map((target) => ({
+        server: this.getServer(target.serverName),
+        containerId: target.containerId,
+      })),
+      dto.action,
+    )
   }
 
   @Get(':name/containers')

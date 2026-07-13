@@ -83,6 +83,7 @@ export const fetchFleetStatus = () => req<Record<string, boolean>>('/metrics/fle
 
 // Docker
 import type { DockerContainer } from '@reshala-web/shared'
+import type { BulkDockerControlResult, BulkDockerScanResult, BulkDockerTarget } from '@reshala-web/shared'
 export const fetchDockerContainers = (name: string) => req<DockerContainer[]>(`/docker/${name}/containers`)
 export const dockerControl = (name: string, id: string, action: 'start' | 'stop' | 'restart') =>
   req<string>(`/docker/${name}/containers/${id}/${action}`, { method: 'POST' })
@@ -90,6 +91,18 @@ export const dockerPrune = (name: string, type: 'images' | 'system') =>
   req<string>(`/docker/${name}/prune/${type}`, { method: 'POST' })
 export const updateRemnanode = (name: string) =>
   req<{ ok: boolean; output: string }>(`/docker/${name}/remnanode/update`, { method: 'POST' })
+export const scanDockerContainersBulk = (serverNames: string[]) =>
+  req<BulkDockerScanResult[]>('/docker/bulk/containers', {
+    method: 'POST',
+    body: JSON.stringify({ serverNames }),
+  })
+export const controlDockerContainersBulk = (
+  action: 'start' | 'stop' | 'restart',
+  targets: BulkDockerTarget[],
+) => req<BulkDockerControlResult[]>('/docker/bulk/control', {
+  method: 'POST',
+  body: JSON.stringify({ action, targets }),
+})
 
 // Remnawave Panel
 export const fetchPanelNodes = () => req<PanelNode[]>('/remnawave/nodes')

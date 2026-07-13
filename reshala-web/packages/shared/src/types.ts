@@ -91,6 +91,23 @@ export interface DockerContainer {
   created: string
 }
 
+export interface BulkDockerScanResult {
+  serverName: string
+  ok: boolean
+  containers: DockerContainer[]
+  error?: string
+}
+
+export interface BulkDockerTarget {
+  serverName: string
+  containerId: string
+}
+
+export interface BulkDockerControlResult extends BulkDockerTarget {
+  ok: boolean
+  output: string
+}
+
 export interface CloudflareNodeZone {
   domain: string
   name: string

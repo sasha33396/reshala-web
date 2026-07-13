@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { Observable } from 'rxjs'
 import { Client } from 'ssh2'
 import * as fs from 'fs'
-import type { Server, DockerContainer, PluginOutputLine } from '@reshala-web/shared'
+import type { Server, DockerContainer, PluginOutputLine, BulkDockerControlResult, BulkDockerScanResult } from '@reshala-web/shared'
 import { connectSsh } from '../common/ssh.utils'
 
 const DOCKER_ACTIONS = new Set(['start', 'stop', 'restart'])
@@ -34,7 +34,15 @@ export class DockerService {
           if (err) { clearTimeout(t); conn.end(); return reject(err) }
           stream.on('data', (c: Buffer) => { out += c.toString() })
           stream.stderr.on('data', (c: Buffer) => { out += c.toString() })
-          stream.on('close', () => { clearTimeout(t); conn.end(); resolve(out) })
+          stream.on('close', (code: number | null) => {
+            clearTimeout(t)
+            conn.end()
+            if (code && code !== 0) {
+              reject(new Error(out.trim() || `Remote command failed with exit code ${code}`))
+              return
+            }
+            resolve(out)
+          })
         })
       })
       conn.on('error', (e) => { clearTimeout(t); reject(e) })
@@ -65,6 +73,54 @@ export class DockerService {
     if (!DOCKER_ACTIONS.has(action)) throw new BadRequestException('Invalid Docker action')
     assertDockerIdentifier(id)
     return this.exec(server, `docker ${action} ${shellEscape(id)} 2>&1`)
+  }
+
+  async listContainersBulk(servers: Server[], concurrency = 12): Promise<BulkDockerScanResult[]> {
+    const results: BulkDockerScanResult[] = []
+    for (let i = 0; i < servers.length; i += concurrency) {
+      const chunk = servers.slice(i, i + concurrency)
+      const settled = await Promise.allSettled(chunk.map((server) => this.listContainers(server)))
+      settled.forEach((result, index) => {
+        const serverName = chunk[index].name
+        if (result.status === 'fulfilled') {
+          results.push({ serverName, ok: true, containers: result.value })
+        } else {
+          results.push({
+            serverName,
+            ok: false,
+            containers: [],
+            error: result.reason?.message ?? 'Failed to read Docker containers',
+          })
+        }
+      })
+    }
+    return results
+  }
+
+  async controlBulk(
+    targets: Array<{ server: Server; containerId: string }>,
+    action: 'start' | 'stop' | 'restart',
+    concurrency = 12,
+  ): Promise<BulkDockerControlResult[]> {
+    const results: BulkDockerControlResult[] = []
+    for (let i = 0; i < targets.length; i += concurrency) {
+      const chunk = targets.slice(i, i + concurrency)
+      const settled = await Promise.allSettled(
+        chunk.map((target) => this.control(target.server, action, target.containerId)),
+      )
+      settled.forEach((result, index) => {
+        const target = chunk[index]
+        results.push({
+          serverName: target.server.name,
+          containerId: target.containerId,
+          ok: result.status === 'fulfilled',
+          output: result.status === 'fulfilled'
+            ? result.value.trim()
+            : (result.reason?.message ?? 'Docker command failed'),
+        })
+      })
+    }
+    return results
   }
 
   async prune(server: Server, type: 'images' | 'system'): Promise<string> {
