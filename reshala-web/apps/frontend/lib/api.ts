@@ -1,4 +1,4 @@
-import type { Server, FleetGroup, Plugin, MetricData, PanelNode, PanelHost, CloudflareNodeConfig, CloudflareNodeMatch, CloudflareNodeZone } from '@reshala-web/shared'
+import type { PublicServer, FleetGroup, Plugin, MetricData, PanelNode, PanelHost, CloudflareNodeConfig, CloudflareNodeMatch, CloudflareNodeZone } from '@reshala-web/shared'
 
 const BASE = '/api'
 
@@ -30,11 +30,11 @@ export const logout = () =>
 // Fleet
 export const fetchFleet = (groupBy?: 'country' | 'provider') =>
   req<FleetGroup[]>(groupBy === 'provider' ? '/fleet?groupBy=provider' : '/fleet')
-export const fetchServer = (name: string) => req<Server>(`/fleet/${name}`)
-export const createServer = (data: Omit<Server, 'status' | 'country'>) =>
+export const fetchServer = (name: string) => req<PublicServer>(`/fleet/${name}`)
+export const createServer = (data: { name: string; user: string; ip: string; port: number; keyPath: string; sudoPass?: string }) =>
   req<{ ok: boolean }>('/fleet', { method: 'POST', body: JSON.stringify(data) })
-export const updateServer = (name: string, data: Partial<Server>) =>
-  req<Server>(`/fleet/${name}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const updateServer = (name: string, data: { user?: string; ip?: string; port?: number; sudoPass?: string }) =>
+  req<PublicServer>(`/fleet/${name}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteServer = (name: string) =>
   req<{ ok: boolean }>(`/fleet/${name}`, { method: 'DELETE' })
 export const provisionServer = (name: string) =>

@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Post, Delete, Body, UseGuards } from '@nestjs/common'
-import { AlertsService, AlertsConfig } from './alerts.service'
+import { AlertsService } from './alerts.service'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { AlertsConfigDto } from './dto/alerts-config.dto'
 
 @UseGuards(JwtAuthGuard)
 @Controller('alerts')
@@ -13,7 +14,7 @@ export class AlertsController {
   }
 
   @Put('config')
-  saveConfig(@Body() body: AlertsConfig) {
+  saveConfig(@Body() body: AlertsConfigDto) {
     this.alerts.saveConfig(body)
     return { ok: true }
   }

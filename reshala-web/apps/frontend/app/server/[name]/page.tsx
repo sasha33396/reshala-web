@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import {
   addServerToCloudflareZone,
   fetchServer,
@@ -24,12 +25,8 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
-interface Props {
-  params: { name: string }
-}
-
-export default function ServerPage({ params }: Props) {
-  const { name } = params
+export default function ServerPage() {
+  const { name } = useParams<{ name: string }>()
   const qc = useQueryClient()
   const { t } = useT()
   const [provisioning, setProvisioning] = useState(false)
@@ -44,7 +41,7 @@ export default function ServerPage({ params }: Props) {
   const [sniBusy, setSniBusy] = useState(false)
 
   function openEdit(s: any) {
-    setEditForm({ ip: s.ip, port: String(s.port), user: s.user, sudoPass: s.sudoPass ?? '' })
+    setEditForm({ ip: s.ip, port: String(s.port), user: s.user, sudoPass: '' })
     setSaveResult(null)
     setShowEdit(true)
   }
@@ -361,7 +358,8 @@ export default function ServerPage({ params }: Props) {
               <p>IP: {server.ip}</p>
               <p>Порт: {server.port}</p>
               <p>Пользователь: {server.user}</p>
-              <p>Ключ: {server.keyPath}</p>
+              <p>SSH-ключ: {server.hasSshKey ? 'настроен' : 'не найден'}</p>
+              <p>Пароль sudo: {server.hasSudoPassword ? 'сохранён' : 'не сохранён'}</p>
             </CardContent>
           </Card>
         )}

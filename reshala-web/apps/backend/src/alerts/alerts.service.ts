@@ -131,11 +131,16 @@ export class AlertsService implements OnModuleInit, OnModuleDestroy {
     const servers = this.fleet.getAll()
     let fired = 0
     const errors: string[] = []
+    const fleetMetrics = await this.metrics.getFleetAlertMetrics(servers)
 
     await Promise.all(
       servers.map(async (server) => {
         try {
-          const m = await this.metrics.getServerMetrics(server.ip)
+          const m = fleetMetrics.get(server.ip)
+          if (!m) {
+            errors.push(`${server.name}: no Prometheus target status`)
+            return
+          }
 
           const checks: Array<{ metric: string; value: number; threshold: number; label: string }> = [
             { metric: 'cpu', value: m.cpu, threshold: config.thresholds.cpuPercent, label: 'CPU' },
@@ -156,8 +161,7 @@ export class AlertsService implements OnModuleInit, OnModuleDestroy {
             fired++
           }
 
-          // Offline check: if all metrics are 0 and we have metrics, consider offline
-          if (config.thresholds.offlineCheck && m.cpu === 0 && m.ram === 0 && m.uptime === 0) {
+          if (config.thresholds.offlineCheck && !m.available) {
             const key = `${server.name}:offline`
             const now = Date.now()
             const last = this.lastFired.get(key) ?? 0

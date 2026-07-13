@@ -9,6 +9,17 @@ export interface Server {
   country?: string
 }
 
+export interface PublicServer {
+  name: string
+  user: string
+  ip: string
+  port: number
+  status?: 'online' | 'offline' | 'checking'
+  country?: string
+  hasSshKey: boolean
+  hasSudoPassword: boolean
+}
+
 export interface Plugin {
   id: string
   title: string
@@ -44,7 +55,7 @@ export interface PluginOutputLine {
 
 export interface FleetGroup {
   country: string
-  servers: Server[]
+  servers: PublicServer[]
 }
 
 export interface PanelNode {

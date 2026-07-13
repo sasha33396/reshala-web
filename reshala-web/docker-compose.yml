@@ -39,6 +39,7 @@ services:
       - ${FLEET_DB_HOST_PATH:-/root/.reshala_fleet}:/app/fleet_db
       - ${SSH_KEYS_HOST_PATH:-/root/.ssh}:/app/ssh_keys
       - ${PLUGINS_HOST_PATH:-./plugins}:/app/plugins:ro
+      - backend_data:/app/data
     env_file: .env
     environment:
       - NODE_ENV=production
@@ -85,3 +86,4 @@ volumes:
   caddy_data:
   caddy_config:
   prometheus_data:
+  backend_data:

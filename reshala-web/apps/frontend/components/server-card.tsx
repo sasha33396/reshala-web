@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { Server, PanelNode, PanelHost } from '@reshala-web/shared'
+import type { PublicServer, PanelNode, PanelHost } from '@reshala-web/shared'
 import { fetchMetrics } from '@/lib/api'
 import { StatusIndicator } from './status-indicator'
 import { Trash2 } from 'lucide-react'
@@ -19,7 +19,7 @@ function useCopy() {
 }
 
 interface Props {
-  server: Server
+  server: PublicServer
   online: boolean | null
   panelNode?: PanelNode | null
   panelHost?: PanelHost

@@ -5,7 +5,9 @@ import { DockerService } from './docker.service'
 import { FleetService } from '../fleet/fleet.service'
 import { AuthService } from '../auth/auth.service'
 
-@WebSocketGateway({ namespace: '/docker', cors: { origin: true, credentials: true } })
+const websocketOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+
+@WebSocketGateway({ namespace: '/docker', cors: { origin: websocketOrigin, credentials: true } })
 export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(DockerGateway.name)
 
@@ -30,16 +32,26 @@ export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('logs')
   handleLogs(client: Socket, payload: { serverName: string; containerId: string; tail?: number }) {
+    if (!payload || typeof payload.serverName !== 'string' || typeof payload.containerId !== 'string') {
+      client.emit('log-error', 'Invalid Docker logs request')
+      return
+    }
     const server = this.fleetService.getByName(payload.serverName)
     if (!server) { client.emit('error', 'Server not found'); return }
 
-    const sub = this.dockerService
-      .streamLogs(server, payload.containerId, payload.tail ?? 100)
-      .subscribe({
-        next: (line) => client.emit('log', line),
-        complete: () => client.emit('log-end'),
-        error: (err: Error) => client.emit('log-error', err.message),
-      })
+    let sub
+    try {
+      sub = this.dockerService
+        .streamLogs(server, payload.containerId, payload.tail ?? 100)
+        .subscribe({
+          next: (line) => client.emit('log', line),
+          complete: () => client.emit('log-end'),
+          error: (err: Error) => client.emit('log-error', err.message),
+        })
+    } catch (err: any) {
+      client.emit('log-error', err?.message ?? 'Invalid Docker logs request')
+      return
+    }
 
     client.once('stop-logs', () => sub.unsubscribe())
     client.once('disconnect', () => sub.unsubscribe())

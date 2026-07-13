@@ -1,13 +1,14 @@
-import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator'
+import { IsIP, IsString, IsNumber, IsOptional, Matches, Min, Max } from 'class-validator'
 import { Type } from 'class-transformer'
 
 export class UpdateServerDto {
   @IsOptional()
   @IsString()
+  @Matches(/^[A-Za-z_][A-Za-z0-9_-]*\$?$/)
   user?: string
 
   @IsOptional()
-  @IsString()
+  @IsIP()
   ip?: string
 
   @IsOptional()
@@ -19,9 +20,11 @@ export class UpdateServerDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^[^\r\n|]+$/)
   keyPath?: string
 
   @IsOptional()
   @IsString()
+  @Matches(/^[^\r\n|]*$/)
   sudoPass?: string
 }

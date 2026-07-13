@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { FleetService } from './fleet.service'
 import { CreateServerDto } from './dto/create-server.dto'
 import { UpdateServerDto } from './dto/update-server.dto'
+import { AddServerByPasswordDto } from './dto/add-server-by-password.dto'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
 @UseGuards(JwtAuthGuard)
@@ -54,7 +55,7 @@ export class FleetController {
   getOne(@Param('name') name: string) {
     const server = this.fleetService.getByName(name)
     if (!server) throw new NotFoundException(`Server "${name}" not found`)
-    return server
+    return this.fleetService.toPublic(server)
   }
 
   @Post()
@@ -65,7 +66,7 @@ export class FleetController {
 
   @Patch(':name')
   update(@Param('name') name: string, @Body() dto: UpdateServerDto) {
-    return this.fleetService.update(name, dto)
+    return this.fleetService.toPublic(this.fleetService.update(name, dto))
   }
 
   @Delete(':name')
@@ -75,7 +76,9 @@ export class FleetController {
   }
 
   @Post('import')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 0 },
+  }))
   async importFleet(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded')
     const content = file.buffer.toString('utf-8')
@@ -93,8 +96,7 @@ export class FleetController {
   }
 
   @Post('add-by-password')
-  async addByPassword(@Body() dto: { name: string; ip: string; password: string; user?: string; port?: number }) {
-    if (!dto.name || !dto.ip || !dto.password) throw new BadRequestException('name, ip, password required')
+  async addByPassword(@Body() dto: AddServerByPasswordDto) {
     return this.fleetService.addByPassword(dto.name, dto.ip, dto.password, dto.user ?? 'root', dto.port ?? 22)
   }
 

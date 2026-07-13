@@ -6,10 +6,10 @@ import {
   Res,
   HttpCode,
   UseGuards,
-  UnauthorizedException,
+  Req,
 } from '@nestjs/common'
 import { IsString } from 'class-validator'
-import { Response } from 'express'
+import { Request, Response } from 'express'
 import { AuthService } from './auth.service'
 import { JwtAuthGuard } from './jwt-auth.guard'
 
@@ -28,9 +28,12 @@ export class AuthController {
   @HttpCode(200)
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const token = await this.authService.login(dto.password)
+    const forwarded = req.headers['x-forwarded-for']
+    const clientId = (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0])?.trim() || req.ip
+    const token = await this.authService.login(dto.password, clientId)
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

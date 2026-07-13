@@ -2,18 +2,15 @@
 
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useParams } from 'next/navigation'
 
 const SshTerminal = dynamic(
   () => import('@/components/ssh-terminal').then((m) => m.SshTerminal),
   { ssr: false, loading: () => <div className="h-[500px] bg-black rounded animate-pulse" /> },
 )
 
-interface Props {
-  params: { name: string }
-}
-
-export default function TerminalPage({ params }: Props) {
-  const { name } = params
+export default function TerminalPage() {
+  const { name } = useParams<{ name: string }>()
 
   return (
     <main className="min-h-screen bg-background flex flex-col">

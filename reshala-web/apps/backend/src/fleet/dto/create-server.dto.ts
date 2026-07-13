@@ -1,14 +1,16 @@
-import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator'
+import { IsIP, IsString, IsNumber, IsOptional, Matches, Min, Max } from 'class-validator'
 import { Type } from 'class-transformer'
 
 export class CreateServerDto {
   @IsString()
+  @Matches(/^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$/)
   name!: string
 
   @IsString()
+  @Matches(/^[A-Za-z_][A-Za-z0-9_-]*\$?$/)
   user!: string
 
-  @IsString()
+  @IsIP()
   ip!: string
 
   @IsNumber()
@@ -18,9 +20,11 @@ export class CreateServerDto {
   port!: number
 
   @IsString()
+  @Matches(/^[^\r\n|]+$/)
   keyPath!: string
 
   @IsOptional()
   @IsString()
+  @Matches(/^[^\r\n|]*$/)
   sudoPass?: string
 }

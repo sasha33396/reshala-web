@@ -19,5 +19,9 @@
   "packageManager": "npm@10.8.1",
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "multer": "2.2.0",
+    "postcss": "8.5.19"
   }
 }

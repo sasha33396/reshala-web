@@ -1,11 +1,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package.json turbo.json ./
+COPY package.json package-lock.json turbo.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/backend/package.json ./apps/backend/
 
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY packages/shared/ ./packages/shared/
 COPY apps/frontend/ ./apps/frontend/

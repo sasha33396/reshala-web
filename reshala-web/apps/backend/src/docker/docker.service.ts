@@ -1,9 +1,23 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { Observable } from 'rxjs'
 import { Client } from 'ssh2'
 import * as fs from 'fs'
 import type { Server, DockerContainer, PluginOutputLine } from '@reshala-web/shared'
 import { connectSsh } from '../common/ssh.utils'
+
+const DOCKER_ACTIONS = new Set(['start', 'stop', 'restart'])
+const DOCKER_PRUNE_TYPES = new Set(['images', 'system'])
+const DOCKER_IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
+
+function assertDockerIdentifier(value: string): void {
+  if (!DOCKER_IDENTIFIER_RE.test(value)) {
+    throw new BadRequestException('Invalid Docker container identifier')
+  }
+}
+
+function shellEscape(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`
+}
 
 @Injectable()
 export class DockerService {
@@ -48,10 +62,13 @@ export class DockerService {
   }
 
   async control(server: Server, action: 'start' | 'stop' | 'restart', id: string): Promise<string> {
-    return this.exec(server, `docker ${action} ${id} 2>&1`)
+    if (!DOCKER_ACTIONS.has(action)) throw new BadRequestException('Invalid Docker action')
+    assertDockerIdentifier(id)
+    return this.exec(server, `docker ${action} ${shellEscape(id)} 2>&1`)
   }
 
   async prune(server: Server, type: 'images' | 'system'): Promise<string> {
+    if (!DOCKER_PRUNE_TYPES.has(type)) throw new BadRequestException('Invalid Docker prune type')
     const cmd = type === 'images' ? 'docker image prune -f' : 'docker system prune -af'
     return this.exec(server, cmd)
   }
@@ -61,13 +78,17 @@ export class DockerService {
   }
 
   streamLogs(server: Server, id: string, tail = 100): Observable<PluginOutputLine> {
+    assertDockerIdentifier(id)
+    if (!Number.isInteger(tail) || tail < 0 || tail > 1000) {
+      throw new BadRequestException('Docker log tail must be an integer between 0 and 1000')
+    }
     return new Observable((observer) => {
       const conn = new Client()
       const t = setTimeout(() => { conn.destroy(); observer.error(new Error('SSH timeout')) }, 10000)
 
       conn.on('ready', () => {
         clearTimeout(t)
-        conn.exec(`docker logs --follow --tail ${tail} ${id} 2>&1`, (err, stream) => {
+        conn.exec(`docker logs --follow --tail ${tail} ${shellEscape(id)} 2>&1`, (err, stream) => {
           if (err) return observer.error(err)
           stream.on('data', (c: Buffer) => {
             for (const line of c.toString().split('\n').filter(Boolean))

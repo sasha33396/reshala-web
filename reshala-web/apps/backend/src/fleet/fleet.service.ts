@@ -2,10 +2,11 @@ import { Injectable, NotFoundException, ConflictException, Logger, BadRequestExc
 import * as fs from 'fs'
 import * as path from 'path'
 import { execFile, execSync } from 'child_process'
-import { createServer } from 'net'
+import { createServer, isIP } from 'net'
 import { promisify } from 'util'
 import { SocksClient } from 'socks'
-import type { Server, FleetGroup } from '@reshala-web/shared'
+import type { Server, FleetGroup, PublicServer } from '@reshala-web/shared'
+import { resolveSshKeyPath } from '../common/ssh.utils'
 
 const execFileAsync = promisify(execFile)
 
@@ -61,6 +62,23 @@ function serializeLine(s: Server): string {
   return `${s.name}|${s.user}|${s.ip}|${s.port}|${s.keyPath}|${s.sudoPass ?? ''}`
 }
 
+function validateFleetRecord(server: Server): void {
+  const values = [server.name, server.user, server.ip, server.keyPath, server.sudoPass ?? '']
+  if (values.some((value) => /[|\r\n]/.test(value))) {
+    throw new BadRequestException('Fleet fields cannot contain pipes or line breaks')
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$/.test(server.name)) {
+    throw new BadRequestException('Invalid server name')
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*\$?$/.test(server.user)) {
+    throw new BadRequestException('Invalid SSH user')
+  }
+  if (isIP(server.ip) === 0) throw new BadRequestException('Invalid server IP address')
+  if (!Number.isInteger(server.port) || server.port < 1 || server.port > 65535) {
+    throw new BadRequestException('Invalid SSH port')
+  }
+}
+
 @Injectable()
 export class FleetService {
   private readonly logger = new Logger(FleetService.name)
@@ -95,6 +113,32 @@ export class FleetService {
     return this.getAll().find((s) => s.name === name) ?? null
   }
 
+  private get sshKnownHostsPath(): string {
+    return path.join(this.sshKeysDir, 'known_hosts')
+  }
+
+  private sshHostKeyArgs(hostKeyAlias?: string): string[] {
+    return [
+      '-o', 'StrictHostKeyChecking=accept-new',
+      '-o', `UserKnownHostsFile=${this.sshKnownHostsPath}`,
+      ...(hostKeyAlias ? ['-o', `HostKeyAlias=${hostKeyAlias}`] : []),
+    ]
+  }
+
+  toPublic(server: Server): PublicServer {
+    const keyPath = resolveSshKeyPath(server.keyPath)
+    return {
+      name: server.name,
+      user: server.user,
+      ip: server.ip,
+      port: server.port,
+      status: server.status,
+      country: server.country,
+      hasSshKey: Boolean(keyPath && fs.existsSync(keyPath)),
+      hasSudoPassword: Boolean(server.sudoPass),
+    }
+  }
+
   getGrouped(groupBy: 'country' | 'provider' = 'country'): FleetGroup[] {
     const servers = this.getAll()
     const map = new Map<string, Server[]>()
@@ -107,10 +151,11 @@ export class FleetService {
     }
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([country, servers]) => ({ country, servers }))
+      .map(([country, servers]) => ({ country, servers: servers.map((server) => this.toPublic(server)) }))
   }
 
   add(server: Server): void {
+    validateFleetRecord(server)
     const existing = this.getByName(server.name)
     if (existing) throw new ConflictException(`Server "${server.name}" already exists`)
     const lines = this.readLines()
@@ -125,7 +170,9 @@ export class FleetService {
       const s = parseServer(line)
       if (!s || s.name !== name) return line
       found = true
-      return serializeLine({ ...s, ...data, name: s.name })
+      const next = { ...s, ...data, name: s.name }
+      validateFleetRecord(next)
+      return serializeLine(next)
     })
     if (!found) throw new NotFoundException(`Server "${name}" not found`)
     this.writeLines(updated)
@@ -145,6 +192,7 @@ export class FleetService {
   }
 
   generateKeyPair(keyPath: string): void {
+    keyPath = resolveSshKeyPath(keyPath)
     if (fs.existsSync(keyPath)) return
     const dir = path.dirname(keyPath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -204,12 +252,12 @@ export class FleetService {
     user: string,
     password: string,
     command: string,
+    hostKeyAlias?: string,
   ): Promise<void> {
     await execFileAsync(
       'sshpass',
       ['-e', 'ssh',
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
+        ...this.sshHostKeyArgs(hostKeyAlias),
         '-o', 'ConnectTimeout=15',
         '-p', String(port),
         `${user}@${host}`,
@@ -225,11 +273,11 @@ export class FleetService {
     user: string,
     keyPath: string,
     command: string,
+    hostKeyAlias?: string,
   ): Promise<void> {
     await execFileAsync(
       'ssh',
-      ['-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
+      [...this.sshHostKeyArgs(hostKeyAlias),
         '-o', 'ConnectTimeout=15',
         '-o', 'BatchMode=yes',
         '-i', keyPath,
@@ -250,8 +298,7 @@ export class FleetService {
   ): Promise<string> {
     const { stdout, stderr } = await execFileAsync(
       'ssh',
-      ['-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
+      [...this.sshHostKeyArgs(),
         '-o', 'ConnectTimeout=15',
         '-o', 'BatchMode=yes',
         '-i', keyPath,
@@ -266,7 +313,7 @@ export class FleetService {
 
   async runSshOnServer(server: Server, command: string): Promise<{ ok: boolean; output: string }> {
     const candidateKeys = [
-      server.keyPath,
+      resolveSshKeyPath(server.keyPath),
       ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map((k) => path.join(this.sshKeysDir, k)),
     ]
     for (const keyFile of candidateKeys) {
@@ -348,7 +395,8 @@ export class FleetService {
   }
 
   async deployPublicKey(server: Server): Promise<void> {
-    const pubKeyPath = `${server.keyPath}.pub`
+    const resolvedKeyPath = resolveSshKeyPath(server.keyPath)
+    const pubKeyPath = `${resolvedKeyPath}.pub`
     if (!fs.existsSync(pubKeyPath)) throw new Error(`Public key not found: ${pubKeyPath}`)
     const pubKey = fs.readFileSync(pubKeyPath, 'utf-8').trim()
 
@@ -389,19 +437,21 @@ export class FleetService {
     if (server.sudoPass) {
       const pwFn: SshFn = (h, p) => this.execSshWithPassword(h, p, server.user, server.sudoPass!, cmd)
       if (await tryDirect('password', pwFn)) return
-      if (await trySocks('password', pwFn)) return
+      const proxiedPwFn: SshFn = (h, p) => this.execSshWithPassword(h, p, server.user, server.sudoPass!, cmd, server.ip)
+      if (await trySocks('password', proxiedPwFn)) return
     }
 
     // Key fallback — for servers where password auth is disabled
     const candidateKeys = [
-      server.keyPath,
+      resolvedKeyPath,
       ...['id_ed25519', 'id_rsa', 'id_ecdsa'].map((k) => path.join(this.sshKeysDir, k)),
     ]
     for (const keyFile of candidateKeys) {
       if (!fs.existsSync(keyFile)) continue
       const keyFn: SshFn = (h, p) => this.execSshWithKey(h, p, server.user, keyFile, cmd)
       if (await tryDirect(`key ${path.basename(keyFile)}`, keyFn)) return
-      if (await trySocks(`key ${path.basename(keyFile)}`, keyFn)) return
+      const proxiedKeyFn: SshFn = (h, p) => this.execSshWithKey(h, p, server.user, keyFile, cmd, server.ip)
+      if (await trySocks(`key ${path.basename(keyFile)}`, proxiedKeyFn)) return
     }
 
     throw new Error(server.sudoPass ? 'Wrong password and no valid key worked' : 'No valid key and no password set')

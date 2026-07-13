@@ -3,17 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { fetchDockerContainers, dockerControl, dockerPrune } from '@/lib/api'
 import { createDockerSocket } from '@/lib/socket'
 import { Button } from '@/components/ui/button'
 import type { DockerContainer } from '@reshala-web/shared'
 
-interface Props {
-  params: { name: string }
-}
-
-export default function DockerPage({ params }: Props) {
-  const { name } = params
+export default function DockerPage() {
+  const { name } = useParams<{ name: string }>()
   const qc = useQueryClient()
 
   const { data: containers = [], isLoading, error } = useQuery({

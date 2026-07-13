@@ -7,7 +7,13 @@ import { connectSsh, sshConnectConfig } from '../common/ssh.utils'
 
 function buildEnvPrefix(envVars: Record<string, string>): string {
   return Object.entries(envVars)
-    .map(([k, v]) => `${k}=${shellEscape(v)}`)
+    .map(([k, v]) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) {
+        throw new Error(`Invalid environment variable name: ${k}`)
+      }
+      if (typeof v !== 'string') throw new Error(`Invalid value for environment variable: ${k}`)
+      return `${k}=${shellEscape(v)}`
+    })
     .join(' ')
 }
 
@@ -24,6 +30,7 @@ export class ExecutorService {
     server: Server,
     envVars: Record<string, string> = {},
   ): Observable<PluginOutputLine> {
+    const envPrefix = buildEnvPrefix(envVars)
     return new Observable((observer) => {
       const conn = new Client()
       const remotePath = `/tmp/reshala_plugin_${Date.now()}_${Math.floor(Math.random() * 1e6)}.sh`
@@ -55,7 +62,6 @@ export class ExecutorService {
 
             this.logger.log(`[${server.name}] Plugin uploaded, executing`)
 
-            const envPrefix = buildEnvPrefix(envVars)
             const cmd = `${envPrefix} bash ${remotePath}; rm -f ${remotePath}`
 
             conn.exec(cmd, (execErr, stream) => {

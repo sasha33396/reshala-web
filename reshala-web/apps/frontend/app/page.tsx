@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fetchCloudflareNodesConfig, fetchFleet, fetchFleetStatus, logout, addServerByPassword, provisionAll, fetchProvisionProgress, fetchPanelNodes, fetchPanelHosts, deleteServer } from '@/lib/api'
-import type { CloudflareNodeZone, FleetGroup, PanelNode, PanelHost, Server } from '@reshala-web/shared'
+import type { CloudflareNodeZone, FleetGroup, PanelNode, PanelHost, PublicServer } from '@reshala-web/shared'
 import { useT, LangToggle } from '@/lib/i18n'
 import { FleetGrid } from '@/components/fleet-grid'
 import { Button } from '@/components/ui/button'
@@ -559,7 +559,7 @@ function FleetSkeleton() {
 
 function buildDnsGroups(groups: FleetGroup[], zones: CloudflareNodeZone[]): FleetGroup[] {
   const servers = groups.flatMap((group) => group.servers)
-  const byIp = new Map<string, Server[]>()
+  const byIp = new Map<string, PublicServer[]>()
   for (const server of servers) {
     const list = byIp.get(server.ip) ?? []
     list.push(server)

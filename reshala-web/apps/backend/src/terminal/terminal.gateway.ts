@@ -11,7 +11,9 @@ import { FleetService } from '../fleet/fleet.service'
 import { AuthService } from '../auth/auth.service'
 import { connectSsh } from '../common/ssh.utils'
 
-@WebSocketGateway({ namespace: '/terminal', cors: { origin: true, credentials: true } })
+const websocketOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+
+@WebSocketGateway({ namespace: '/terminal', cors: { origin: websocketOrigin, credentials: true } })
 export class TerminalGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(TerminalGateway.name)
   private readonly connections = new Map<string, Client>()

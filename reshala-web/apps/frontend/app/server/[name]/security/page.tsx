@@ -2,14 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { createPluginsSocket } from '@/lib/socket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PluginRunPayload } from '@reshala-web/shared'
-
-interface Props {
-  params: { name: string }
-}
 
 interface SecurityStatus {
   SSH_PORT?: string
@@ -24,8 +21,8 @@ interface RunState {
   output: { type: string; data: string }[]
 }
 
-export default function SecurityPage({ params }: Props) {
-  const { name } = params
+export default function SecurityPage() {
+  const { name } = useParams<{ name: string }>()
   const [status, setStatus] = useState<SecurityStatus | null>(null)
   const [statusLoading, setStatusLoading] = useState(false)
   const [activeCard, setActiveCard] = useState<string | null>(null)

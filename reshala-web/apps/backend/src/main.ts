@@ -2,8 +2,10 @@ import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import cookieParser from 'cookie-parser'
 import { AppModule } from './app.module'
+import { validateAuthConfig } from './auth/auth.config'
 
 async function bootstrap() {
+  validateAuthConfig()
   const app = await NestFactory.create(AppModule)
 
   app.use(cookieParser())

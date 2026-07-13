@@ -236,6 +236,19 @@ certbot --nginx -d manage.yourdomain.com
 | `NEXT_PUBLIC_API_URL` | `/api` | URL для API-запросов |
 | `NEXT_PUBLIC_WS_URL` | *(пусто)* | URL для WebSocket. Пусто = тот же хост (через Nginx). В разработке: `http://localhost:3001` |
 
+> В production `FRONTEND_URL` должен точно совпадать с origin в браузере, например
+> `https://reshala.example.com`. Backend не запустится с пустым/тестовым `JWT_SECRET`
+> или некорректным `ADMIN_PASSWORD_HASH`.
+
+### SSH fingerprints
+
+При первом SSH-подключении backend сохраняет fingerprint сервера (TOFU), а при следующих
+подключениях отклоняет изменившийся ключ. Хранилище по умолчанию находится в
+`${SSH_KEYS_DIR}/.reshala_host_fingerprints.json` и сохраняется вместе с SSH volume.
+
+После легитимной переустановки сервера удалите запись `<ip>:<port>` из этого JSON-файла
+и соответствующую запись из `${SSH_KEYS_DIR}/known_hosts`, затем подключитесь повторно.
+
 ---
 
 ## Генерация пароля администратора

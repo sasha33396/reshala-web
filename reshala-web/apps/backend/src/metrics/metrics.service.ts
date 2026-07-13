@@ -27,6 +27,13 @@ export interface FleetAnalytics {
   criticalDisk: number
 }
 
+export interface FleetAlertMetric {
+  cpu: number
+  ram: number
+  disk: number
+  available: boolean
+}
+
 interface PromResult {
   metric: Record<string, string>
   value: [number, string]
@@ -245,6 +252,39 @@ export class MetricsService {
       criticalRam: withMetrics.filter((s) => s.ram >= 90).length,
       criticalDisk: withMetrics.filter((s) => s.disk >= 90).length,
     }
+  }
+
+  async getFleetAlertMetrics(servers: Server[]): Promise<Map<string, FleetAlertMetric>> {
+    if (servers.length === 0) return new Map()
+
+    const [cpuResults, ramResults, diskResults, upResults] = await Promise.all([
+      this.query(`100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100`),
+      this.query(`(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100`),
+      this.query(`(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100`),
+      this.query(`up{job="node_exporter"}`),
+    ])
+
+    const extractIp = (instance: string) => instance.split(':')[0]
+    const toMap = (results: PromResult[]) => new Map(
+      results.map((result) => [extractIp(result.metric.instance ?? ''), parseFloat(result.value[1]) || 0]),
+    )
+    const cpuByIp = toMap(cpuResults)
+    const ramByIp = toMap(ramResults)
+    const diskByIp = toMap(diskResults)
+    const upByIp = toMap(upResults)
+    const metrics = new Map<string, FleetAlertMetric>()
+
+    for (const server of servers) {
+      if (!upByIp.has(server.ip)) continue
+      metrics.set(server.ip, {
+        cpu: cpuByIp.get(server.ip) ?? 0,
+        ram: ramByIp.get(server.ip) ?? 0,
+        disk: diskByIp.get(server.ip) ?? 0,
+        available: upByIp.get(server.ip) === 1,
+      })
+    }
+
+    return metrics
   }
 
   async getFleetStatus(servers: { ip: string; port?: number }[]): Promise<Record<string, boolean>> {

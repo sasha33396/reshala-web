@@ -1,10 +1,4 @@
-import {
-  WebSocketGateway,
-  SubscribeMessage,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  WsException,
-} from '@nestjs/websockets'
+import { WebSocketGateway, SubscribeMessage, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets'
 import { Logger } from '@nestjs/common'
 import { Socket } from 'socket.io'
 import { FleetService } from '../fleet/fleet.service'
@@ -13,7 +7,9 @@ import { PluginsService } from './plugins.service'
 import { AuthService } from '../auth/auth.service'
 import type { PluginRunPayload } from '@reshala-web/shared'
 
-@WebSocketGateway({ namespace: '/plugins', cors: { origin: true, credentials: true } })
+const websocketOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+
+@WebSocketGateway({ namespace: '/plugins', cors: { origin: websocketOrigin, credentials: true } })
 export class PluginsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(PluginsGateway.name)
 
@@ -40,6 +36,23 @@ export class PluginsGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   @SubscribeMessage('run')
   async handleRun(client: Socket, payload: PluginRunPayload) {
+    if (!payload || typeof payload.pluginId !== 'string') {
+      client.emit('error', { message: 'Invalid plugin request' })
+      return
+    }
+    if (payload.serverName !== undefined && typeof payload.serverName !== 'string') {
+      client.emit('error', { message: 'Invalid server name' })
+      return
+    }
+    if (payload.serverNames !== undefined && (!Array.isArray(payload.serverNames) || payload.serverNames.some((name) => typeof name !== 'string'))) {
+      client.emit('error', { message: 'Invalid server names' })
+      return
+    }
+    if (payload.envVars !== undefined && (typeof payload.envVars !== 'object' || Array.isArray(payload.envVars))) {
+      client.emit('error', { message: 'Invalid plugin environment' })
+      return
+    }
+    const concurrency = Math.min(20, Math.max(1, Number.isInteger(payload.concurrency) ? payload.concurrency! : 10))
     const plugin = this.pluginsService.getById(payload.pluginId)
     if (!plugin) {
       client.emit('error', { message: `Plugin "${payload.pluginId}" not found` })
@@ -60,17 +73,21 @@ export class PluginsGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const runOne = (server: (typeof allFleet)[number]) =>
       new Promise<void>((resolve) => {
         client.emit('server-start', { server: server.name })
-        this.executorService
-          .runPlugin(plugin.path, server, payload.envVars ?? {})
-          .subscribe({
-            next: (line) => client.emit('output', { server: server.name, ...line }),
-            complete: () => { client.emit('server-done', { server: server.name }); resolve() },
-            error: (err: Error) => { client.emit('server-error', { server: server.name, error: err.message }); resolve() },
-          })
+        try {
+          this.executorService
+            .runPlugin(plugin.path, server, payload.envVars ?? {})
+            .subscribe({
+              next: (line) => client.emit('output', { server: server.name, ...line }),
+              complete: () => { client.emit('server-done', { server: server.name }); resolve() },
+              error: (err: Error) => { client.emit('server-error', { server: server.name, error: err.message }); resolve() },
+            })
+        } catch (err: any) {
+          client.emit('server-error', { server: server.name, error: err?.message ?? 'Invalid plugin request' })
+          resolve()
+        }
       })
 
     if (payload.parallel) {
-      const concurrency = payload.concurrency ?? 10
       for (let i = 0; i < servers.length; i += concurrency) {
         await Promise.all(servers.slice(i, i + concurrency).map(runOne))
       }

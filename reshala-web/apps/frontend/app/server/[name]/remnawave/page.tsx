@@ -3,18 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { fetchDockerContainers, dockerControl, updateRemnanode } from '@/lib/api'
 import { createPluginsSocket, createDockerSocket } from '@/lib/socket'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PluginRunPayload } from '@reshala-web/shared'
 
-interface Props {
-  params: { name: string }
-}
-
-export default function RemnawavePage({ params }: Props) {
-  const { name } = params
+export default function RemnawavePage() {
+  const { name } = useParams<{ name: string }>()
   const qc = useQueryClient()
 
   const { data: containers = [], isLoading } = useQuery({
